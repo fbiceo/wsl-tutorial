@@ -194,6 +194,15 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
 既然所有的專案都是 Docker 化，我們伺服器端的準備也超級簡單：**Server 同樣只需要安裝好 Docker 就行了。**
 
+> [!WARNING]
+> **「為什麼這邊的指令又變回 `docker compose` 了？不能直接用 `sail artisan migrate` 嗎？」**
+> 
+> 這是一個超關鍵的觀念澄清：**Laravel Sail 是一個純粹的「本機開發輔助工具」！** 
+> 
+> Sail 的終生使命是讓你在本機開發時舒服一點（幫你掛載本機檔案、自動建立 root 權限讓你好安裝套件）。但在正式上線的大人世界裡，把這種充滿各種後門權限的開發用容器推上線是**非常危險**的。
+> 
+> 因此，到了 Testing 或 Production 伺服器，我們就不會再帶 Sail 玩了。我們會回歸最純粹、權限鎖緊的標準 `docker compose` 指令。你在本機用 `sail` 得到的開發快樂，在伺服器上就要以正規的 Docker 指令來執行佈署與資料庫遷移。
+
 ### 情境 A：快速測試機佈署 (Testing Environment)
 如果只是想快速展示給客戶看，或是內部測試，最暴力的做法跟本機開發很像：
 1. 透過 Git 把專案 Clone 到 Server 上。
@@ -202,29 +211,29 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    ```bash
    docker compose up -d
    ```
-4. 跑一下資料庫更新 (如果有的話)：
+4. 跑一下資料庫更新 (如果有的話)。注意這裡我們沒有 `sail`，你要指定執行在那台名為 `laravel.test` 的容器裡面：
    ```bash
-   docker compose exec app php artisan migrate
+   docker compose exec laravel.test php artisan migrate
    ```
-效果立竿見影，客戶馬上看得到。
+*(對照一下：這行指令相當於你在本機下達 `sail artisan migrate`，只不過我們現在是用 Docker 原生語法，叫 `laravel.test` 那個容器幫我們跑 `php artisan migrate`。)*
 
 ### 情境 B：正式環境佈署 (Production Environment)
 到了正式機，我們就不建議用掛載 Volume (綁定本機目錄) 的方式了，因為有效能與安全的考量。最好的做法是把程式碼「打包」成正式的 Image。
 
 1. **準備 Production 專用的設定檔**
-   在專案根目錄準備一個 `Dockerfile` (專門用來把程式碼 COPY 進去並設定生產環境的 PHP/Nginx) 和一個 `docker-compose.prod.yml`。
+   在專案根目錄準備一個 `Dockerfile` (專門用來把程式碼 COPY 進去並設定生產環境、關閉 Debug 模式) 和一個正式版的 `docker-compose.prod.yml`。
 
 2. **在 Server 上的起手式**
    把程式碼拉下來後，執行打包與啟動：
    ```bash
-   # 1. 建立正式版的 Image (會把你當下的程式碼打包進去)
+   # 1. 建立正式版的 Image (會把你當下的程式碼打包鎖死進去)
    docker compose -f docker-compose.prod.yml build
    
    # 2. 啟動背景服務
    docker compose -f docker-compose.prod.yml up -d
    
-   # 3. 執行正式機的資料庫遷移 (通常只需做一次)
-   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+   # 3. 執行正式機的資料庫遷移 (這裡指定跑在名為 app 或 laravel.test 的容器內)
+   docker compose -f docker-compose.prod.yml exec laravel.test php artisan migrate --force
    ```
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server 只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
