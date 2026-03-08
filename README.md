@@ -66,6 +66,17 @@ docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/h
 ```
 這時 Laravel 會跳出一個漂亮的終端機選單，裡面就可以看到 **`mongodb`**！你只要用上下鍵跟空白鍵打勾，按下 Enter 就一次幫你設定到好。
 
+> [!IMPORTANT]
+> **「等等！Sail 幫我選好 MongoDB 後，我可以直接開始寫 Code 了嗎？」**
+> 
+> **還差最後一步！** Laravel Sail 的互動選單 **「只會幫你準備好 MongoDB 的資料庫伺服器」** (也就是起一個 Docker 容器負責跑資料庫本身)。但是你的 Laravel 專案還需要懂得怎麼跟 MongoDB 溝通的「翻譯官」(Driver)。
+> 
+> 等到看完這篇文章的 Step 3 與 Step 4 (把設定檔 alias 搞定、容器啟動) 後，請務必記得執行以下指令安裝核心套件：
+> ```bash
+> sail composer require mongodb/laravel-mongodb
+> ```
+> 然後照著 [MongoDB 官方文件](https://www.mongodb.com/zh-cn/docs/drivers/php/laravel-mongodb/current/quick-start/download-and-install/) 的指示，修改你的 `config/database.php` 和 `.env` 檔，把連線與 Provider 註冊進去，這樣才算真正的 MongoDB 全解鎖喔！
+
 無論你選做法A還是做法B，現在 `~/projects/my-clean-app` 裡面都有熱騰騰、全副武裝的 Laravel 專案了，重點是你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
 ---
