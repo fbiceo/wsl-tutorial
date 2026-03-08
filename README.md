@@ -31,7 +31,10 @@
 這時候你一定會問：「我不裝 PHP，那我要怎麼跑 `composer create-project` 建立專案？」
 答案是：我們叫 Docker 派一個「臨時工」來幫我們做這件事，做完就讓他原地消失。
 
-這也是剛接觸這套流派最震撼的一刻：**你只需要用一行指令，就能把 Laravel 框架，連同需要的資料庫 (MySQL)、快取 (Redis)、搜尋引擎 (Meilisearch) 甚至 NoSQL (MongoDB) 全部一次打包建好。**
+這裡提供兩種建立專案的做法，請依據你的「服務需求」來選擇：
+
+### 做法A：一鍵懶人包（適合不需要 MongoDB 的開發者）
+這也是剛接觸這套流派最震撼的一刻：**你只需要用一行指令，就能把 Laravel 框架，連同需要的資料庫 (MySQL)、快取 (Redis) 與搜尋引擎 (Meilisearch) 全部一次打包建好。**
 
 打開 WSL 終端機 (Ubuntu)，切換到你想放專案的目錄：
 ```bash
@@ -41,13 +44,29 @@ cd ~/projects
 
 執行這串由 Laravel 官方專為 Docker 玩家設計的神奇指令：
 ```bash
-curl -s "https://laravel.build/my-clean-app?with=mysql,redis,mongodb,meilisearch" | bash
+curl -s "https://laravel.build/my-clean-app?with=mysql,redis,meilisearch" | bash
 ```
-*這行指令的白話文是：下載一個寫好的腳本，啟動一個包含 PHP 與 Composer 的臨時 Docker 容器，幫你在目前資料夾建立 `my-clean-app` 專案，並且自動把 `mysql, redis, mongodb, meilisearch` 四大金剛的設定檔寫進 `docker-compose.yml` 裡面。*
+*(注意：官方的 `laravel.build` 目前沒有原生支援 MongoDB。若需要 MongoDB，請改用下面的【做法B】！)*
 
-看到 `Thank you! We hope you build something incredible. Dive in with: cd my-clean-app && ./vendor/bin/sail up` 的訊息後，就代表大功告成了！
+看到 `Thank you! We hope you build something incredible.` 的訊息後就大功告成了。
 
-現在 `~/projects/my-clean-app` 裡面就有熱騰騰、全副武裝的 Laravel 專案了，而且你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
+### 做法B：原汁原味兩步法（適合需要 MongoDB 等進階選配的開發者）
+如果你想要安裝官方最近才支援的 MongoDB，就必須先起一個純淨的骨架，再利用 Sail 的互動選單來勾選。
+
+1. 先請臨時工幫你抓下最乾淨的 Laravel 框架：
+```bash
+mkdir -p ~/projects
+cd ~/projects
+docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/html laravelsail/php84-composer:latest composer create-project laravel/laravel my-clean-app
+```
+2. 進入專案，呼叫 Sail 安裝精靈的互動選單：
+```bash
+cd my-clean-app
+docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/html laravelsail/php84-composer:latest php artisan sail:install
+```
+這時 Laravel 會跳出一個漂亮的終端機選單，裡面就可以看到 **`mongodb`**！你只要用上下鍵跟空白鍵打勾，按下 Enter 就一次幫你設定到好。
+
+無論你選做法A還是做法B，現在 `~/projects/my-clean-app` 裡面都有熱騰騰、全副武裝的 Laravel 專案了，重點是你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
 ---
 
@@ -91,7 +110,55 @@ cd my-clean-app
 
 ---
 
-## Step 4. Antigravity 完美協作起手式
+## Step 4. Sail 進階開發技巧 (強烈建議)
+
+既然你的環境都在 Docker 容器裡，每次要下 PHP 或 Artisan 指令總不能每次都敲那串落落長的 `docker run...`。Laravel Sail 提供了一系列優雅的包裝，讓你可以像在本機開發一樣輕鬆。
+
+### 🌟 強烈建議：設定 Sail Alias
+為了不讓你每次都要打 `./vendor/bin/sail`，我們必須要幫 WSL 的終端機設一個短命名的別名 (alias)。
+
+在終端機輸入打開你的設定檔：
+```bash
+nano ~/.bashrc
+```
+滑到文件最下面，補上這一行：
+```bash
+alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+```
+存檔離開後，執行 `source ~/.bashrc` 讓它生效。接下來的操作，你只要敲 `sail` 兩個字就能號令天下了！
+
+### 💻 執行 PHP 與 Artisan 指令
+應用程式雖然在 Docker 內執行，但透過 Sail 你可以完美遠端遙控：
+- **查 PHP 版本或跑腳本：**
+  ```bash
+  sail php --version
+  sail php script.php
+  ```
+- **執行 Artisan 指令：** (就像在本機敲 `php artisan` 一樣)
+  ```bash
+  sail artisan queue:work
+  sail artisan migrate
+  ```
+
+### ➕ 專案開發中途，突然想新增服務？
+假設你開發到一半，突然發現需要用 Redis 甚至 Memcached 怎麼辦？完全不用手寫設定檔，只要輸入：
+```bash
+sail artisan sail:add
+```
+熟悉的互動式選單又會跑出來，讓你輕鬆勾選需要的服務，它會自動幫你補齊 `docker-compose.yml`。
+
+### 🔄 重建 Sail 映像檔
+如果你的專案需要裝新的套件或是底層環境想更新，保險起見最好叫 Docker 清空快取重新打包一次：
+```bash
+sail down -v
+sail build --no-cache
+sail up -d
+```
+*(注意：`-v` 會一併把掛載的 Volume 清理掉，資料庫可能會重置，請在備份或確認不是正式機後再加這個參數！)*
+
+---
+
+## Step 5. Antigravity 完美協作起手式
 
 現在網頁跑起來了，我們要開始改 Code。以往可能會想用 devcontainer，但我們直接走更穩定直白的路線。
 
@@ -110,7 +177,7 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
 ---
 
-## Step 5. 開發完成：測試區 (Testing) 與正式區 (Production) 的快速佈署
+## Step 6. 開發完成：測試區 (Testing) 與正式區 (Production) 的快速佈署
 
 開發完了，要在測試機或正式機上線。這時候你會體會到 Docker 最大的好處：「本機怎麼跑，伺服器就怎麼跑」，永遠不會再有 "But it works on my machine!" 這種懸案。
 
