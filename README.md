@@ -26,10 +26,12 @@
 
 ---
 
-## Step 2. 無中生有：用「拋棄式貨櫃」建立 Laravel 專案
+## Step 2. 無中生有：用一行指令建立含全套服務的 Laravel 專案
 
 這時候你一定會問：「我不裝 PHP，那我要怎麼跑 `composer create-project` 建立專案？」
-答案是：我們叫 Docker 派一個「裝好 PHP 的臨時工」來幫我們做這件事，做完就讓他原地消失。
+答案是：我們叫 Docker 派一個「臨時工」來幫我們做這件事，做完就讓他原地消失。
+
+這也是剛接觸這套流派最震撼的一刻：**你只需要用一行指令，就能把 Laravel 框架，連同需要的資料庫 (MySQL)、快取 (Redis)、搜尋引擎 (Meilisearch) 甚至 NoSQL (MongoDB) 全部一次打包建好。**
 
 打開 WSL 終端機 (Ubuntu)，切換到你想放專案的目錄：
 ```bash
@@ -37,54 +39,15 @@ mkdir -p ~/projects
 cd ~/projects
 ```
 
-執行這串神奇的指令 (這是我們的臨時工)：
+執行這串由 Laravel 官方專為 Docker 玩家設計的神奇指令：
 ```bash
-docker run --rm \
-    -u "$(id -u):$(id -g)" \
-    -v $(pwd):/var/www/html \
-    -w /var/www/html \
-    laravelsail/php84-composer:latest \
-    composer create-project laravel/laravel my-clean-app
+curl -s "https://laravel.build/my-clean-app?with=mysql,redis,mongodb,meilisearch" | bash
 ```
-*這行指令的白話文是：跑一個包含 composer 的 PHP 8.4 容器，把目前資料夾掛載進去。下載好 Laravel 後，`--rm` 讓他原地自爆。*
+*這行指令的白話文是：下載一個寫好的腳本，啟動一個包含 PHP 與 Composer 的臨時 Docker 容器，幫你在目前資料夾建立 `my-clean-app` 專案，並且自動把 `mysql, redis, mongodb, meilisearch` 四大金剛的設定檔寫進 `docker-compose.yml` 裡面。*
 
-> [!TIP]
-> **「等等！那我要怎麼選擇 Redis, MySQL 等附屬服務？」**
-> 
-> 上面那個指令是最乾淨的原生 Laravel。如果你希望一開始就把 Redis 等服務包進來，你有兩個做法：
-> 
-> **做法一：使用 Laravel 官方專為 Docker 設計的安裝指令（推薦）**
-> 其實 Laravel 官方就有提供一個超級方便的指令，它背後也是呼叫 Docker 臨時工來做事，而且可以讓你指定要什麼服務：
-> ```bash
-> curl -s "https://laravel.build/my-clean-app?with=mysql,redis,meilisearch" | bash
-> ```
-> 
-> **做法二：用剛剛建立好的專案，再叫一次臨時工來安裝 Sail 服務**
-> ```bash
-> docker run --rm -u "$(id -u):$(id -g)" -v $(pwd)/my-clean-app:/var/www/html -w /var/www/html laravelsail/php84-composer:latest php artisan sail:install --with=mysql,redis
-> ```
-> 
-> 💡 **至於 MongoDB 怎麼辦？**
-> Laravel Sail 官方預設只有 MySQL, PostgreSQL, Redis, Meilisearch 等。如果你要加上 MongoDB 這種非官方預設的服務，非常簡單，等專案建好後，直接用 Antigravity 打開 `docker-compose.yml`，在 `services` 裡面補上這段 MongoDB 的 Image 設定檔，Docker 一樣會快樂地幫你跑起來！
-> 
-> ```yaml
->     # 將這段加在 docker-compose.yml 的 services: 底下
->     mongo:
->         image: mongo:latest
->         ports:
->             - '${FORWARD_DB_PORT:-27017}:27017'
->         environment:
->             MONGO_INITDB_ROOT_USERNAME: '${DB_USERNAME}'
->             MONGO_INITDB_ROOT_PASSWORD: '${DB_PASSWORD}'
->             MONGO_INITDB_DATABASE: '${DB_DATABASE}'
->         volumes:
->             - 'sail-mongo:/data/db'
->         networks:
->             - sail
-> ```
-> *(註：別忘了在 docker-compose.yml 最下方的 `volumes:` 區塊也要加一行 `sail-mongo:` 喔！)*
+看到 `Thank you! We hope you build something incredible. Dive in with: cd my-clean-app && ./vendor/bin/sail up` 的訊息後，就代表大功告成了！
 
-現在 `~/projects/my-clean-app` 裡面就有熱騰騰的 Laravel 專案了，而且你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
+現在 `~/projects/my-clean-app` 裡面就有熱騰騰、全副武裝的 Laravel 專案了，而且你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
 ---
 
