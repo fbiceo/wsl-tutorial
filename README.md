@@ -43,10 +43,46 @@ docker run --rm \
     -u "$(id -u):$(id -g)" \
     -v $(pwd):/var/www/html \
     -w /var/www/html \
-    laravelsail/php83-composer:latest \
+    laravelsail/php84-composer:latest \
     composer create-project laravel/laravel my-clean-app
 ```
-*這行指令的白話文是：跑一個包含 composer 的 PHP 8.3 容器，把目前資料夾掛載進去。下載好 Laravel 後，`--rm` 讓他原地自爆。*
+*這行指令的白話文是：跑一個包含 composer 的 PHP 8.4 容器，把目前資料夾掛載進去。下載好 Laravel 後，`--rm` 讓他原地自爆。*
+
+> [!TIP]
+> **「等等！那我要怎麼選擇 Redis, MySQL 等附屬服務？」**
+> 
+> 上面那個指令是最乾淨的原生 Laravel。如果你希望一開始就把 Redis 等服務包進來，你有兩個做法：
+> 
+> **做法一：使用 Laravel 官方專為 Docker 設計的安裝指令（推薦）**
+> 其實 Laravel 官方就有提供一個超級方便的指令，它背後也是呼叫 Docker 臨時工來做事，而且可以讓你指定要什麼服務：
+> ```bash
+> curl -s "https://laravel.build/my-clean-app?with=mysql,redis,meilisearch" | bash
+> ```
+> 
+> **做法二：用剛剛建立好的專案，再叫一次臨時工來安裝 Sail 服務**
+> ```bash
+> docker run --rm -u "$(id -u):$(id -g)" -v $(pwd)/my-clean-app:/var/www/html -w /var/www/html laravelsail/php84-composer:latest php artisan sail:install --with=mysql,redis
+> ```
+> 
+> 💡 **至於 MongoDB 怎麼辦？**
+> Laravel Sail 官方預設只有 MySQL, PostgreSQL, Redis, Meilisearch 等。如果你要加上 MongoDB 這種非官方預設的服務，非常簡單，等專案建好後，直接用 Antigravity 打開 `docker-compose.yml`，在 `services` 裡面補上這段 MongoDB 的 Image 設定檔，Docker 一樣會快樂地幫你跑起來！
+> 
+> ```yaml
+>     # 將這段加在 docker-compose.yml 的 services: 底下
+>     mongo:
+>         image: mongo:latest
+>         ports:
+>             - '${FORWARD_DB_PORT:-27017}:27017'
+>         environment:
+>             MONGO_INITDB_ROOT_USERNAME: '${DB_USERNAME}'
+>             MONGO_INITDB_ROOT_PASSWORD: '${DB_PASSWORD}'
+>             MONGO_INITDB_DATABASE: '${DB_DATABASE}'
+>         volumes:
+>             - 'sail-mongo:/data/db'
+>         networks:
+>             - sail
+> ```
+> *(註：別忘了在 docker-compose.yml 最下方的 `volumes:` 區塊也要加一行 `sail-mongo:` 喔！)*
 
 現在 `~/projects/my-clean-app` 裡面就有熱騰騰的 Laravel 專案了，而且你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
