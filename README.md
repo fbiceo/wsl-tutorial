@@ -186,39 +186,102 @@ ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0
 
 ```yaml
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "80:80"        # 標準 HTTP
-      - "443:443"      # HTTPS
-      - "443:443/udp"  # 支援超快的 HTTP/3
-    environment:
-      - APP_ENV=${APP_ENV:-local}
-      - APP_DEBUG=${APP_DEBUG:-true}
-      - OCTANE_SERVER=frankenphp
-    volumes:
-      # 【重要】：開發環境把這行打開，掛載本機目錄
-      # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
-      - .:/app
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        ports:
+            - "80:80"        # 標準 HTTP
+            - "443:443"      # HTTPS
+            - "443:443/udp"  # 支援超快的 HTTP/3
+        environment:
+            - APP_ENV=${APP_ENV:-local}
+            - APP_DEBUG=${APP_DEBUG:-true}
+            - OCTANE_SERVER=frankenphp
+        volumes:
+            # 【重要】：開發環境把這行打開，掛載本機目錄
+            # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
+            - .:/app
         # 開發環境必備：傳遞 --watch 參數給 Dockerfile 的 ENTRYPOINT 達成 Hot Reloading
         command: ["--watch"]
         tty: true
         networks:
             - sail
 
-    # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
-    # db:
-    #   image: mariadb:10.6
-    #   networks:
-    #       - sail
-    #   ...
+    mysql:
+        image: 'mysql:8.4'
+        ports:
+            - '${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ROOT_HOST: '%'
+            MYSQL_DATABASE: '${DB_DATABASE}'
+            MYSQL_USER: '${DB_USERNAME}'
+            MYSQL_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ALLOW_EMPTY_PASSWORD: 1
+            MYSQL_EXTRA_OPTIONS: '${MYSQL_EXTRA_OPTIONS:-}'
+        volumes:
+            - 'sail-mysql:/var/lib/mysql'
+            - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - mysqladmin
+                - ping
+                - '-p${DB_PASSWORD}'
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: 'redis:alpine'
+        ports:
+            - '${FORWARD_REDIS_PORT:-6379}:6379'
+        volumes:
+            - 'sail-redis:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+    meilisearch:
+        image: 'getmeili/meilisearch:latest'
+        ports:
+            - '${FORWARD_MEILISEARCH_PORT:-7700}:7700'
+        environment:
+            MEILI_NO_ANALYTICS: '${MEILISEARCH_NO_ANALYTICS:-false}'
+        volumes:
+            - 'sail-meilisearch:/meili_data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - wget
+                - '--no-verbose'
+                - '--spider'
+                - 'http://127.0.0.1:7700/health'
+            retries: 3
+            timeout: 5s
 
 networks:
     sail:
         driver: bridge
+
+volumes:
+    sail-mysql:
+        driver: local
+    sail-redis:
+        driver: local
+    sail-meilisearch:
+        driver: local
 ```
 
 也就是說，我們把原本繁雜的 Nginx、PHP-FPM，加上 Sail 裡面各種雜七雜八的容器，全部收斂成一個高效的 `app` 容器！
