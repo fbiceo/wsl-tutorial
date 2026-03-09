@@ -177,6 +177,10 @@ RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 # 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
 RUN composer install --optimize-autoloader --no-dev
 
+# ⚠️ 防呆機制：確保 FrankenPHP 啟動檔存在 (萬一你忘記把 public/frankenphp-worker.php 推上 Git)
+# 這裡強迫在打包 Image 時自動生一份出來，避免上線直接崩潰！
+RUN php artisan octane:install --server=frankenphp
+
 # 預設啟動 Laravel Octane 榨出極限效能 (注意：需要指定 admin-port 避免預設算式導致負數報錯)
 ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
 ```
@@ -493,13 +497,27 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    > **發生原因**：這代表 PHP 在嘗試啟動 Laravel 框架的「第一瞬間」就發生了致命錯誤（Fatal Error）導致崩潰。
    > **常見兩大兇手**：
    > 1. **忘記生金鑰**：正式機的 `.env` 裡面缺少了 `APP_KEY`，導致 Laravel 崩潰。請執行：`docker compose -f docker-compose.prod.yml exec app php artisan key:generate` 後再重啟容器。
-   > 2. **缺少啟動檔**：你的專案沒有把 `public/frankenphp-worker.php` 推進 Git 裡面，導致正式機抓不到腳本。
+   > 2. **缺少啟動檔 (最常發生)**：你的專案沒有把 `public/frankenphp-worker.php` 推進 Git 裡面，導致正式機抓不到腳本。
+   >    👉 **解法超簡單**：只要重新執行一次 Octane 安裝指令，Laravel 就會自動幫你生出那支檔案（並且不會覆蓋你的其他設定），執行完重啟容器即可：
+   >    `docker compose -f docker-compose.prod.yml exec app php artisan octane:install --server=frankenphp`
    > 
-   > 💡 **終極抓漏指令**：想知道它到底是哪裡出問題？請直接執行這個指令，它會讓隱藏在白畫面底下的「真實 PHP 錯訊」原形畢露：
+   > 💡 **終極抓漏指令**：想知道它到底是哪裡出問題？請直接執行下面這個指令，讓 Octane 吐出真實的 PHP 錯訊：
    > ```bash
-   > docker compose -f docker-compose.prod.yml exec app php public/frankenphp-worker.php
+   > docker compose -f docker-compose.prod.yml exec app php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8080
    > ```
-   > 看到真實錯誤訊息後，通常就能一秒破案了！
+   > 
+   > 👻 **「等等，我下了上面那行指令，結果什麼都沒顯示就直接跳回命令字元了？！」**
+   > 如果完全沒有噴出任何錯誤（Silent Crash），這通常代表 Laravel 連出錯的力氣都沒有就斷氣了。請用這兩招急救：
+   > 
+   > **第一招：清除過期快取 (最常見)**
+   > 有時候 Image 打包時把舊的、路徑不對的設定檔也 cache 進去了，請直接對容器敲：
+   > `docker compose -f docker-compose.prod.yml exec app php artisan optimize:clear`
+   > 清完之後重啟容器，通常 80% 都能解決。
+   > 
+   > **第二招：看真正的驗屍報告**
+   > 既然終端機印不出來，Laravel 一定有偷偷把遺言寫在 Log 檔裡。請進去看那份唯一的真相：
+   > `docker compose -f docker-compose.prod.yml exec app cat storage/logs/laravel.log`
+   > (滑到檔案最下面，你就會看到真正的 Fatal Error 是什麼了！)
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
 
