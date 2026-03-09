@@ -9,7 +9,7 @@
 
 ---
 
-## 📖 目錄
+## 目錄
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
 - [Step 2. 無中生有：用臨時工建立 Vue/Vite 專案](#step-2-無中生有用臨時工建立-vuevite-專案)
 - [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化統一天下的配置)
@@ -27,7 +27,7 @@
 
 *(重要提醒：千萬不要手癢跑去下載 Node.js 安裝檔，忍住！)*
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -67,7 +67,7 @@ docker run --rm -it \
 
 現在，熱騰騰的 Vite 專案跟滿滿的 `node_modules` 都在資料夾裡了，而且我們的 Windows/WSL 依舊乾乾淨淨，連一滴 npm 的痕跡都沒有！
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -138,7 +138,7 @@ services:
     tty: true
 ```
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -162,7 +162,7 @@ docker compose exec frontend npm install vue-router pinia
 ```
 裝完之後，`node_modules` 和 `package.json` 會透過 Volume 自動同步回你的電腦裡。
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -173,7 +173,7 @@ docker compose exec frontend npm install vue-router pinia
 2. `docker compose up -d` 讓前端伺服器跑起來。
 3. 舒服地在 Antigravity 寫 code、存檔、看著這療癒的秒速 UI 更新。
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -207,7 +207,7 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 此時，你的前端 Server 裡面完全沒有 Node.js 的痕跡，只有最輕量、安全的 Nginx 在默默派送編譯好的神速靜態網頁。這就是全端工程師極致浪漫的追求啊！
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -241,7 +241,7 @@ docker compose up -d
 ```
 搞定！又是一個完全沒有污染、三分鐘內就能完美接手的前端開發環境。
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 

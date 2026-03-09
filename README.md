@@ -12,7 +12,7 @@
 
 ---
 
-## 📖 目錄
+## 目錄
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
 - [Step 2. 無中生有：建立全套 Laravel 專案與安裝 FrankenPHP](#step-2-無中生有建立全套-laravel-專案與安裝-frankenphp)
 - [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化統一天下的配置)
@@ -40,7 +40,7 @@
 
 *(重要提醒：到目前為止，你的電腦還是香的，千萬不要手癢跑去 WSL 裡面敲什麼 `apt install php`！)*
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -118,7 +118,7 @@ cd my-clean-app
 ./vendor/bin/sail down
 ```
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -215,7 +215,7 @@ services:
 
 也就是說，我們把原本繁雜的 Nginx、PHP-FPM，加上 Sail 裡面各種雜七雜八的容器，全部收斂成一個高效的 `app` 容器！
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -253,7 +253,7 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -274,7 +274,7 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 3. 用 Antigravity 開啟 WSL 上的資料夾進行開發修改
 4. 下班關機前敲個 `docker compose down`，乾乾淨淨。
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -383,7 +383,7 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
@@ -436,7 +436,7 @@ docker compose exec app php artisan migrate:fresh --seed
 
 只要簡單四步，新電腦上的開發環境就 100% 復活了！
 
-[↑ 回到目錄](#-目錄)
+[↑ 回到目錄](#目錄)
 
 ---
 
