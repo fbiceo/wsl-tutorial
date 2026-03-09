@@ -418,6 +418,10 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
        # ⚡ 效能極致化：改用 host 網路模式，讓容器直接綁定伺服器網卡
        # 拔除 ports 設定，省去 Docker NAT 轉換效能損耗，也更容易拿到用戶真實 IP！
        network_mode: "host"
+       # ⚠️ 為什麼這裡還要寫 environment？
+       # 雖然我們下面有掛載 env_file，但在 compose 檔裡寫死這幾個變數，層級會「最高」
+       # 就算你不小心把本機寫著 APP_ENV=local 的 .env 拿丟上正式機，
+       # 這裡的設定也會強行把它蓋掉，確保正式機「絕對」是用 production 跑，這是一種防呆保險！
        environment:
          - APP_ENV=production
          - APP_DEBUG=false
@@ -431,7 +435,8 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
        # 直接在伺服器專案根目錄建立一份 `.env` 檔案，Docker Compose 自動會讀取進去！
        # 不要把資料庫密碼寫死在下面的 docker-compose.prod.yml 裡，這樣推上 Git 會外洩喔。
        env_file:
-         - .env
+         - path: .env
+           required: true # (Docker Compose v2.24+) 如果外面沒有 .env 檔，會直接報錯拒絕啟動！強迫你一定要建好它！
 
      # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS Cloud SQL)，若堅持自建才保留這段
      # db:
