@@ -203,8 +203,8 @@ services:
       # 【重要】：開發環境把這行打開，掛載本機目錄
       # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
       - .:/app
-        # 開發環境必備：覆寫 Dockerfile 指令加入 --watch 參數達成 Hot Reloading
-        command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
+        # 開發環境必備：傳遞 --watch 參數給 Dockerfile 的 ENTRYPOINT 達成 Hot Reloading
+        command: ["--watch"]
         tty: true
         networks:
             - sail
