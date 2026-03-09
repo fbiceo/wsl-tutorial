@@ -9,13 +9,12 @@
 
 ## 📖 目錄
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
-- [Step 2. 無中生有：用一行指令建立含全套服務的 Laravel 專案](#step-2-無中生有用一行指令建立含全套服務的-laravel-專案)
-- [Step 3. 專案的 Docker 化與啟動](#step-3-專案的-docker-化與啟動)
-- [Step 4. Sail 進階開發技巧 (強烈建議)](#step-4-sail-進階開發技巧-強烈建議)
+- [Step 2. 無中生有：建立全套 Laravel 專案與安裝 FrankenPHP](#step-2-無中生有建立全套-laravel-專案與安裝-frankenphp)
+- [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化統一天下的配置)
+- [Step 4. 日常開發與進階技巧](#step-4-日常開發與進階技巧)
 - [Step 5. Antigravity 完美協作起手式](#step-5-antigravity-完美協作起手式)
 - [Step 6. 開發完成：測試區與正式區的快速佈署](#step-6-開發完成測試區-testing-與正式區-production-的快速佈署)
-- [Step 7. 同場加映：效能狂的最終兵器 (FrankenPHP 統一開發與上線)](#step-7-同場加映效能狂的最終兵器-frankenphp-統一開發與上線)
-- [Step 8. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-8-換電腦怎麼辦從-git-clone-接續開發)
+- [Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-7-換電腦怎麼辦從-git-clone-接續開發)
 
 ---
 
@@ -40,7 +39,7 @@
 
 ---
 
-## Step 2. 無中生有：用一行指令建立含全套服務的 Laravel 專案
+## Step 2. 無中生有：建立全套 Laravel 專案與安裝 FrankenPHP
 
 這時候你一定會問：「我不裝 PHP，那我要怎麼跑 `composer create-project` 建立專案？」
 答案是：我們叫 Docker 派一個「臨時工」來幫我們做這件事，做完就讓他原地消失。
@@ -93,97 +92,161 @@ docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/h
 
 無論你選做法A還是做法B，現在 `~/projects/my-clean-app` 裡面都有熱騰騰、全副武裝的 Laravel 專案了，重點是你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
-[↑ 回到目錄](#-目錄)
+### 安裝頂級引擎：FrankenPHP (Laravel Octane)
+因為我們堅持正式機跟開發機都要最乾淨、最高效能，所以我們不用傳統的 Nginx + PHP-FPM，而是直接選用用 Go 寫的現代化伺服器 **FrankenPHP**。它直接內建了 Web Server 跟 PHP 執行環境，讓網頁速度飛快。
 
----
+剛建好的專案自帶了 Laravel Sail，我們先把它暫時起起來，借用它的環境把 Octane 裝好：
 
-## Step 3. 專案的 Docker 化與啟動
-
-接下來我們要讓這個專案跑起來。其實 Laravel 新版自帶的 Sail 已經幫我們把 `docker-compose.yml` 寫得差不多了。
-
-進入專案資料夾：
 ```bash
 cd my-clean-app
-```
 
-啟動專案的 Docker 環境 (Nginx, PHP, MySQL 等等)：
-```bash
+# 1. 啟動剛建好的基礎專案 (暫時使用 Sail 預設配置)
 ./vendor/bin/sail up -d
-```
-*(這也是叫 Docker 依照設定檔把開發需要的伺服器跑起來。啟動成功後，你打開 Windows 瀏覽器輸入 `http://localhost` 應該就能看到 Laravel 首頁了。)*
 
-### 📁 專案的資料夾架構與檔案樹
-在我們的「零污染」流派下，你的 Windows 和 WSL 根目錄都超級乾淨，所有的髒活都在專案資料夾內。你的專案結構看起來會像這樣：
+# 2. 安裝 Octane 套件
+./vendor/bin/sail composer require laravel/octane
 
-```text
-\\wsl$\Ubuntu\home\你的使用者名稱\projects\
-└── my-clean-app/                # 你的 Laravel 專案根目錄
-    ├── app/                     # Laravel 核心程式碼
-    ├── bootstrap/
-    ├── config/
-    ├── database/
-    ├── public/                  # 網站公開目錄 (引導至 index.php)
-    ├── resources/               # 前端資源 (視圖、未編譯的 JS/CSS)
-    ├── routes/                  # 路由設定 (web.php, api.php 等)
-    ├── storage/
-    ├── tests/
-    ├── vendor/                  # Composer 裝的套件 (裝在 Docker 裡，但檔案存在這)
-    ├── .env                     # 你的環境變數設定檔 (例如 DB 連線密碼)
-    ├── composer.json            # 擴充套件清單
-    ├── docker-compose.yml       # 決定你要起哪些 Docker 容器 (Nginx, MySQL, Redis...)
-    └── artisan                  # Laravel 專用指令工具
+# 3. 選擇 FrankenPHP 作為引擎
+./vendor/bin/sail artisan octane:install --server=frankenphp
+
+# 4. 安裝完畢，把暫時的環境關掉，準備我們自己的效能配置
+./vendor/bin/sail down
 ```
-在這裡面，`docker-compose.yml` 就像是專案的「基礎建設草圖」，只要有它，不管換到哪台電腦，下達 `docker compose up -d` 就能原音重現一模一樣的開發環境。
 
 [↑ 回到目錄](#-目錄)
 
 ---
 
-## Step 4. Sail 進階開發技巧 (強烈建議)
+## Step 3. 專案的 Docker 化：統一天下的配置
 
-既然你的環境都在 Docker 容器裡，每次要下 PHP 或 Artisan 指令總不能每次都敲那串落落長的 `docker run...`。Laravel Sail 提供了一系列優雅的包裝，讓你可以像在本機開發一樣輕鬆。
+為了達成從開發到上線都能保持極致輕量與一致，我們要徹底拋棄原本 Sail 那套依賴許多服務的配置，改寫自己的 **FrankenPHP 專用 Dockerfile**，並用一套 `docker-compose.yml` 統一天下！
 
-### 🌟 強烈建議：設定 Sail Alias
-為了不讓你每次都要打 `./vendor/bin/sail`，我們必須要幫 WSL 的終端機設一個短命名的別名 (alias)。
+> [!NOTE]
+> **等等，`Dockerfile` 跟 `docker-compose.yml` 到底差在哪？**
+> 
+> 如果用開餐廳來比喻：
+> - **`Dockerfile` 是一份「廚師的食譜與訓練手冊」**：它負責描述「單一個貨櫃 (Container)」要怎麼被做出來。例如我們這份食譜寫著：要用 Go 語言的 FrankenPHP 當基底、要安裝哪些 PHP 擴充、要把 Laravel 程式碼放進哪個資料夾。建置出來的東西叫做 `Image`（映像檔）。
+> - **`docker-compose.yml` 則是「餐廳的經理與營運計畫」**：它負責統籌整間餐廳要請幾個廚師、誰負責做什麼。你可以用它來規定：我要起一個命名為 `app` 的服務（並且指定使用剛才那份 `Dockerfile` 來建立出來）、要開放哪幾個 Port 給外面的客人連線、還要不要掛載資料庫 `db` 服務。
+>
+> 簡單來說：**`Dockerfile` 決定了「內容物是什麼」，而 `docker-compose.yml` 決定了這些內容物要「怎麼合作跟對外營業」。**
 
-在終端機輸入打開你的設定檔：
-```bash
-nano ~/.bashrc
+### 1. 準備 FrankenPHP 專用 Dockerfile
+在專案根目錄建立 `Dockerfile`，負責定義我們應用程式的靈魂：
+
+```dockerfile
+# 基礎映像檔：官方 FrankenPHP (自帶 Caddy web server 與 PHP)
+FROM dunglas/frankenphp:php8.4
+
+# 加入一些 LABEL 讓同事知道這是什麼 (人類友善)
+LABEL maintainer="你的名字 <your.email@example.com>"
+LABEL description="Laravel + FrankenPHP 終極純淨版"
+
+# 設定環境變數，讓伺服器知道跑在 80 port
+ENV SERVER_NAME=":80"
+
+# 安裝額外的 PHP 擴展
+# (FrankenPHP 內建 install-php-extensions 工具，不用自己刻 apt-get，超佛心)
+RUN install-php-extensions \
+    pdo_mysql \
+    gd \
+    mbstring \
+    xml \
+    curl \
+    zip \
+    mongodb \
+    pcntl \
+    redis
+
+# 安裝 Composer (從官方映像檔複製過來)
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# 將目前專案原始碼 COPY 進 Image
+COPY . /app
+
+# 設定存取權限給 web server
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+
+# 安裝正式版套件 (不含 dev 依賴，保持瘦身)
+# 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
+RUN composer install --optimize-autoloader --no-dev
+
+# 預設啟動 Laravel Octane 榨出極限效能
+ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80"]
 ```
-滑到文件最下面，補上這一行：
-```bash
-alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
-```
-存檔離開後，執行 `source ~/.bashrc` 讓它生效。接下來的操作，你只要敲 `sail` 兩個字就能號令天下了！
 
-### 💻 執行 PHP 與 Artisan 指令
-應用程式雖然在 Docker 內執行，但透過 Sail 你可以完美遠端遙控：
-- **查 PHP 版本或跑腳本：**
-  ```bash
-  sail php --version
-  sail php script.php
-  ```
-- **執行 Artisan 指令：** (就像在本機敲 `php artisan` 一樣)
-  ```bash
-  sail artisan queue:work
-  sail artisan migrate
-  ```
+### 2. 準備統一天下的 `docker-compose.yml`
+打開專案內的 `docker-compose.yml`，把裡面原本 Sail 幫你產生的東西全部清空，換成這套配置：
 
-### ➕ 專案開發中途，突然想新增服務？
-假設你開發到一半，突然發現需要用 Redis 甚至 Memcached 怎麼辦？完全不用手寫設定檔，只要輸入：
-```bash
-sail artisan sail:add
-```
-熟悉的互動式選單又會跑出來，讓你輕鬆勾選需要的服務，它會自動幫你補齊 `docker-compose.yml`。
+```yaml
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"        # 標準 HTTP
+      - "443:443"      # HTTPS
+      - "443:443/udp"  # 支援超快的 HTTP/3
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - OCTANE_SERVER=frankenphp
+    volumes:
+      # 【重要】：開發環境把這行打開，掛載本機目錄
+      # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
+      - .:/app
+    # 開發環境必備：覆寫 Dockerfile 指令加入 --watch 參數達成 Hot Reloading
+    command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
+    tty: true
 
-### 🔄 重建 Sail 映像檔
-如果你的專案需要裝新的套件或是底層環境想更新，保險起見最好叫 Docker 清空快取重新打包一次：
-```bash
-sail down -v
-sail build --no-cache
-sail up -d
+  # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
+  # db:
+  #   image: mariadb:10.6
+  #   ...
 ```
-*(注意：`-v` 會一併把掛載的 Volume 清理掉，資料庫可能會重置，請在備份或確認不是正式機後再加這個參數！)*
+
+也就是說，我們把原本繁雜的 Nginx、PHP-FPM，加上 Sail 裡面各種雜七雜八的容器，全部收斂成一個高效的 `app` 容器！
+
+[↑ 回到目錄](#-目錄)
+
+---
+
+## Step 4. 日常開發與進階技巧
+
+配置完成後，未來你的日常開發就不再需要依賴 Sail 的腳本，直接回歸最標準的 Docker 指令：
+
+### 啟動與即時同步 (Hot Reloading)
+在終端機輸入啟動指令：
+```bash
+docker compose up -d
+```
+啟動成功後，打開瀏覽器輸入 `http://localhost` 就能看見極速的 Laravel。
+因為我們有設定 Volume 掛載以及 `--watch` 參數，你在程式裡寫的任何 Controller 或 Route，FrankenPHP 都會立刻幫你重載 worker，重整網頁立刻生效！
+
+### 執行 PHP 與 Artisan 指令
+既然沒有了 Sail，我們要怎麼下 Artisan 指令呢？很簡單，直接叫我們的 `app` 容器幫忙代勞：
+```bash
+# 執行 artisan 指令
+docker compose exec app php artisan migrate
+
+# 查 PHP 版本
+docker compose exec app php --version
+```
+
+> [!TIP]
+> **嫌指令太長？設個 Alias 吧！**  
+> 你可以在 WSL 的 `~/.bashrc` 加上：`alias dc='docker compose'`  
+> 這樣以後只要敲 `dc exec app php artisan make:controller` 就舒服多了！
+
+### 重建映像檔
+如果你修改了 `Dockerfile`（例如想裝新的 PHP 擴展），請記得叫 Docker 清空快取重新打包一次：
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
 
 [↑ 回到目錄](#-目錄)
 
@@ -202,9 +265,9 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
 **這就是我們的日常開發循環：**
 1. 啟動 WSL
-2. 進入專案資料夾跑 `sail up -d` (或者你自己寫好的 `docker compose up -d`)
+2. 進入專案資料夾跑 `docker compose up -d`
 3. 用 Antigravity 開啟 WSL 上的資料夾進行開發修改
-4. 下班關機前敲個 `sail down`，乾乾淨淨。
+4. 下班關機前敲個 `docker compose down`，乾乾淨淨。
 
 [↑ 回到目錄](#-目錄)
 
@@ -233,11 +296,10 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    ```bash
    docker compose up -d
    ```
-4. 跑一下資料庫更新 (如果有的話)。注意這裡我們沒有 `sail`，你要指定執行在那台名為 `laravel.test` 的容器裡面：
+4. 跑一下資料庫更新 (如果有的話)。因為我們統籌了配置，所以你只要指定執行在那台名為 `app` 的容器裡面：
    ```bash
-   docker compose exec laravel.test php artisan migrate
+   docker compose exec app php artisan migrate --force
    ```
-*(對照一下：這行指令相當於你在本機下達 `sail artisan migrate`，只不過我們現在是用 Docker 原生語法，叫 `laravel.test` 那個容器幫我們跑 `php artisan migrate`。)*
 
 ### 情境 B：正式環境佈署 (Production Environment)
 到了正式機，我們就不建議用掛載 Volume (綁定本機目錄) 的方式了，因為有效能與安全的考量。最好的做法是把程式碼「打包」成正式的 Image。
@@ -310,8 +372,8 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    # 2. 啟動背景服務
    docker compose -f docker-compose.prod.yml up -d
    
-   # 3. 執行正式機的資料庫遷移 (這裡指定跑在名為 app 或 laravel.test 的容器內)
-   docker compose -f docker-compose.prod.yml exec laravel.test php artisan migrate --force
+   # 3. 執行正式機的資料庫遷移
+   docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
    ```
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
@@ -320,126 +382,7 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
 ---
 
-## Step 7. 同場加映：效能狂的最終兵器 (FrankenPHP 統一開發與上線)
-
-如果你跟我一樣，覺得「正式機還要起一個 Nginx 配一個 PHP-FPM」看了很不順眼，想追求極致的乾淨跟效能... 那你絕對不能錯過 **FrankenPHP**。做工程有時候真的很累，但看到架構變乾淨，真心覺得滿療癒的哈哈。
-
-FrankenPHP 是一個用 Go 寫的現代化伺服器，**直接內建了 Web Server 跟 PHP 執行環境**，讓你可以完全拋棄 Nginx！
-
-要在這套「零污染環境」中使用 FrankenPHP，從開發一路順順打到正式上線，請這樣設定：
-
-### 1. 安裝 Laravel Octane
-在你的開發環境 (Sail) 中，先裝好 Octane 套件，並選擇 FrankenPHP 作為引擎：
-```bash
-sail composer require laravel/octane
-sail artisan octane:install --server=frankenphp
-```
-
-### 2. 準備 FrankenPHP 專用的 Dockerfile
-在專案根目錄建立 `Dockerfile`，我們基於官方的 FrankenPHP 映像檔：
-
-```dockerfile
-# 基礎映像檔：官方 FrankenPHP (自帶 Caddy web server 與 PHP)
-FROM dunglas/frankenphp:php8.4
-
-# 加入一些 LABEL 讓同事知道這是什麼 (人類友善)
-LABEL maintainer="你的名字 <your.email@example.com>"
-LABEL description="Laravel + FrankenPHP 終極純淨版"
-
-# 設定環境變數，讓伺服器知道跑在 80 port
-ENV SERVER_NAME=":80"
-
-# 安裝額外的 PHP 擴展
-# (FrankenPHP 內建 install-php-extensions 工具，不用自己刻 apt-get，超佛心)
-RUN install-php-extensions \
-    pdo_mysql \
-    gd \
-    mbstring \
-    xml \
-    curl \
-    zip \
-    mongodb \
-    pcntl \
-    redis
-
-# 安裝 Composer (從官方映像檔複製過來)
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-WORKDIR /app
-
-# 將目前專案原始碼 COPY 進 Image
-COPY . /app
-
-# 設定存取權限給 web server
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
-
-# 安裝正式版套件 (不含 dev 依賴，保持瘦身)
-# 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
-RUN composer install --optimize-autoloader --no-dev
-
-# 預設啟動 Laravel Octane 榨出極限效能
-ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80"]
-```
-
-### 3. 準備統一天下的 `docker-compose.yml`
-我們捨棄原本的分離式架構，寫一套 `docker-compose.yml` 讓開發和正式環境都能共用：
-
-```yaml
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "80:80"        # 標準 HTTP
-      - "443:443"      # HTTPS
-      - "443:443/udp"  # 支援超快的 HTTP/3
-    environment:
-      - APP_ENV=${APP_ENV:-production}
-      - APP_DEBUG=${APP_DEBUG:-false}
-      - OCTANE_SERVER=frankenphp
-    volumes:
-      # 【重要】：如果是「開發環境」，就把這行打開，把本機目錄掛上去蓋掉容器內的 /app
-      # 這樣你在 Antigravity 寫 Code 才會即時生效！
-      # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
-      - .:/app
-    tty: true
-
-  # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
-  # db:
-  #   image: mariadb:10.6
-  #   ...
-```
-
-**開發時的通暢體驗（Hot Reloading）：**
-如果使用 FrankenPHP (Laravel Octane)，PHP 會被常駐在記憶體中以追求極限效能。因此在開發時，如果只是單純掛載 Volume，修改程式碼並「不會」立刻生效，我們必須啟用 `--watch` 模式！
-
-1. **修改 `docker-compose.yml` 加入監聽指令**：
-   在 `app` 服務底下增加 `command`，覆寫掉 Dockerfile 原本的啟動參數，加上 `--watch`：
-   ```yaml
-   services:
-     app:
-       # ... 其它設定 (build, ports, environment, volumes 等)
-       volumes:
-         - .:/app
-       # 【新增這行】覆寫 Dockerfile 預設指令，加入 --watch 參數
-       command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
-   ```
-2. **啟動專案**：在終端機輸入 `docker compose up -d` 起起來。
-3. **即時同步生效**：因為 Volume 掛載以及 `--watch` 的加持，你在 Windows Antigravity 改的任何 Controller 或 Route，FrankenPHP 都會立刻幫你重載 worker，網頁重整直接生效！
-4. **執行日常指令**：若需要打 Artisan 指令，一樣是敲：`docker compose exec app php artisan make:controller`
-
-**上線時的痛快感：**
-1. 將 Volume 掛載註解掉。
-2. 在 Server 跑 `docker compose up -d --build`。
-3. 你的 Server 直接化身一台效能野獸，沒有 Nginx、沒有 FPM 二手交接！單一 Container 直球對決高併發請求，無比清淨。
-
-[↑ 回到目錄](#-目錄)
-
----
-
-## Step 8. 換電腦怎麼辦？(從 Git Clone 接續開發)
+## Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)
 
 當你換了一台新電腦，或是團隊有新同事加入時，該如何無痛接手這個「零污染」專案呢？
 我們不需要因為沒有 PHP 而感到慌張，因為 Docker 會搞定一切！
@@ -473,17 +416,17 @@ docker run --rm \
 *(注意：這裡的 `--ignore-platform-reqs` 是告訴 Composer 不要機車去檢查本機有沒有 PHP 跟對應的版本，直接乖乖把 package 下載好放到 vendor 裡面就好！)*
 
 ### 4. 啟動環境與初始化
-感謝剛剛的臨時工幫忙，現在我們的 `./vendor/bin/sail` 已經長出來了！接下來就跟平常一樣香了：
+感謝臨時工幫忙把套件載完，現在你的專案又是一尾活龍。接下來就回歸我們標準的啟動流程：
 
 ```bash
-# 啟動背景服務 (MySQL, Redis, 你的 App 容器等)
-sail up -d
+# 啟動背景服務
+docker compose up -d
 
 # 產生加密密鑰
-sail artisan key:generate
+docker compose exec app php artisan key:generate
 
 # 執行資料庫遷移與資料填充
-sail artisan migrate:fresh --seed
+docker compose exec app php artisan migrate:fresh --seed
 ```
 
 只要簡單四步，新電腦上的開發環境就 100% 復活了！
