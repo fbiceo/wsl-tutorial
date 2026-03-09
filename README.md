@@ -457,18 +457,26 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
      #   driver: local
    ```
 
-2. **在 Server 上的起手式**
-   把程式碼拉下來後，執行打包與啟動：
+2. **在 Server 上的標準佈署流程 (第一次上線與後續推 Code 更新通用)**
+   因為我們正式環境**沒有掛載目錄**，程式碼是「烤」在 Image 裡面的。所以無論是第一次把專案 clone 下來，還是日後改了 Code 要上線，請統一依照這個「黃金四步」：
+
    ```bash
-   # 1. 建立正式版的 Image (會把你當下的程式碼打包鎖死進去)
+   # 1. 取得最新程式碼 (如果是第一次，這步叫做 git clone)
+   git pull
+   
+   # 2. 叫 Docker 重新把程式碼烤成正式版 Image
    docker compose -f docker-compose.prod.yml build
    
-   # 2. 啟動背景服務
+   # 3. 無縫啟動/重啟服務 (Docker 會自動開新容器或平滑替換舊容器)
    docker compose -f docker-compose.prod.yml up -d
    
-   # 3. 執行正式機的資料庫遷移
+   # 4. 執行正式機的資料庫更新 (如果有的話)
    docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
    ```
+   
+   > [!NOTE]
+   > **「咦？為什麼 migrate 要加 `--force`？會把資料刪掉嗎？」**
+   > 別擔心，`--force` **不會**刪除你的資料庫。當 Laravel 偵測到身處 `production` 環境時，執行任何 migrate 都會跳出警告問「你確定要執行嗎？(Y/n)」，加上 `--force` 只是為了告訴系統「對，我確定，跳過詢問直接跑完」，是安全且必備的選項。*(如果要刪除重建那叫 `migrate:fresh`，在正式機千萬別亂下！)*
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
 
