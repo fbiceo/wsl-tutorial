@@ -113,15 +113,21 @@ docker compose up -d
 現在，這個名為 `c-dev` 的全能 C 語言環境就在背景待命了。
 只要你想編譯或執行，就把指令丟進去：
 
+> [!WARNING]
+> **注意權限問題 (Permission Denied)！**
+> 預設用 `docker compose exec` 去編譯出來的檔案會變成 `root` 權限，若未來要手動刪除或用編輯器修改會跳權限不足。
+> 請記得加上 `-u "$(id -u):$(id -g)"` 選項，確保產出的執行檔屬於你的平民帳號：
+> *(如果不幸已經變 root 砍不掉，老樣子，在 WSL 終端機敲 `sudo chown -R $USER:$USER .` 就好)*
+
 ```bash
 # 編譯
-docker compose exec c-dev gcc main.c -o app
+docker compose exec -u "$(id -u):$(id -g)" c-dev gcc main.c -o app
 
-# 執行
+# 執行 (不產生新檔案時可以省略 -u)
 docker compose exec c-dev ./app
 
 # 如果你寫了 Makefile，甚至可以直接下
-docker compose exec c-dev make
+docker compose exec -u "$(id -u):$(id -g)" c-dev make
 ```
 
 你甚至可以在容器裡面直接下 `gdb ./app` 來除錯！

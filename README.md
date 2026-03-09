@@ -305,17 +305,30 @@ docker compose up -d
 ### 執行 PHP 與 Artisan 指令
 既然沒有了 Sail，我們要怎麼下 Artisan 指令呢？很簡單，直接叫我們的 `app` 容器幫忙代勞：
 ```bash
-# 執行 artisan 指令
+# 執行 artisan 指令 (單純執行，不產生檔案的指令)
 docker compose exec app php artisan migrate
+
+# ⚠️ 當需要「建立新檔案」(例如 make:controller) 時，務必加上使用者身分，避免產生的檔案變成 root 權限導致編輯器報錯無法存檔：
+docker compose exec -u "$(id -u):$(id -g)" app php artisan make:controller TestController
 
 # 查 PHP 版本
 docker compose exec app php --version
 ```
 
+> [!WARNING]
+> **「編輯器突然不能存檔了？Permission Denied 怎麼辦？」**
+> 
+> 當你忘記加 `-u "$(id -u):$(id -g)"` 參數去建立檔案（或者是系統自動生成的 log 檔），這些檔案預設擁有者會標記為 `root`，導致你一般使用者的編輯器無法修改與存檔。
+> 遇到這個狀況，請在 WSL 終端機對專案目錄執行：
+> `sudo chown -R $USER:$USER .`
+> 即可把檔案擁有權搶回來！
+
 > [!TIP]
 > **嫌指令太長？設個 Alias 吧！**  
-> 你可以在 WSL 的 `~/.bashrc` 加上：`alias dc='docker compose'`  
-> 這樣以後只要敲 `dc exec app php artisan make:controller` 就舒服多了！
+> 你可以在 WSL 的 `~/.bashrc` 加上：
+> `alias dc='docker compose'`  
+> `alias dce='docker compose exec -u "$(id -u):$(id -g)"'`  
+> 這樣以後只要敲 `dce app php artisan make:controller TestController` 就舒服多了，而且絕對不會出現權限問題！
 
 ### 重建映像檔
 如果你修改了 `Dockerfile`（例如想裝新的 PHP 擴展），請記得叫 Docker 清空快取重新打包一次：

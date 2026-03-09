@@ -155,11 +155,18 @@ docker compose up -d
 因為我們有設定 Volume 掛載，所以你在 Antigravity 裡面修改任何 `.vue` 檔案，Vite 都會光速幫你 Hot Reload，瀏覽器免重整直接更新！
 
 ### 需要安裝新的 npm 套件？
-因為你本機沒有 npm，如果開發到一半想安裝 Vue Router 或 Pinia，同樣呼叫我們的由 `docker-compose` 建立的容器來代勞：
+因為你本機沒有 npm，如果開發到一半想安裝 Vue Router 或 Pinia，同樣呼叫我們由 `docker-compose` 建立的容器來代勞：
+
+> [!WARNING]
+> **注意權限問題 (Permission Denied)！** 
+> 安裝套件會異動 `package.json` 並產生新的檔案。請務必加上 `-u` 參數明確指定你的平民身分，否則產生的檔案擁有者會變成 `root`，導致編輯器無法存檔喔！
 
 ```bash
-docker compose exec frontend npm install vue-router pinia
+docker compose exec -u "$(id -u):$(id -g)" frontend npm install vue-router pinia
 ```
+
+*(萬一忘記加參數導致出現 Permission Denied 報錯，只要在 WSL 敲 `sudo chown -R $USER:$USER .` 就能把權限搶回來。)*
+
 裝完之後，`node_modules` 和 `package.json` 會透過 Volume 自動同步回你的電腦裡。
 
 [↑ 回到目錄](#目錄)
