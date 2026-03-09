@@ -412,10 +412,23 @@ services:
   #   ...
 ```
 
-**開發時的通暢體驗：**
-1. `docker compose up -d` 起起來。
-2. 因為 Volume 掛載的關係，你在 Windows Antigravity 改的 code 會即時同步。
-3. 若需要跑指令就敲：`docker compose exec app php artisan make:controller`
+**開發時的通暢體驗（Hot Reloading）：**
+如果使用 FrankenPHP (Laravel Octane)，PHP 會被常駐在記憶體中以追求極限效能。因此在開發時，如果只是單純掛載 Volume，修改程式碼並「不會」立刻生效，我們必須啟用 `--watch` 模式！
+
+1. **修改 `docker-compose.yml` 加入監聽指令**：
+   在 `app` 服務底下增加 `command`，覆寫掉 Dockerfile 原本的啟動參數，加上 `--watch`：
+   ```yaml
+   services:
+     app:
+       # ... 其它設定 (build, ports, environment, volumes 等)
+       volumes:
+         - .:/app
+       # 【新增這行】覆寫 Dockerfile 預設指令，加入 --watch 參數
+       command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
+   ```
+2. **啟動專案**：在終端機輸入 `docker compose up -d` 起起來。
+3. **即時同步生效**：因為 Volume 掛載以及 `--watch` 的加持，你在 Windows Antigravity 改的任何 Controller 或 Route，FrankenPHP 都會立刻幫你重載 worker，網頁重整直接生效！
+4. **執行日常指令**：若需要打 Artisan 指令，一樣是敲：`docker compose exec app php artisan make:controller`
 
 **上線時的痛快感：**
 1. 將 Volume 掛載註解掉。
