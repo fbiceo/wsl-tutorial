@@ -427,15 +427,29 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
        # 但是！我們「必須」把 storage 資料夾獨立掛載出來，這樣上傳的圖片跟 Log 才不會在更新容器時消失：
        volumes:
          - app-storage:/app/storage
+       # ⚠️ 正式機的 .env 怎麼辦？
+       # 直接在伺服器專案根目錄建立一份 `.env` 檔案，Docker Compose 自動會讀取進去！
+       # 不要把資料庫密碼寫死在下面的 docker-compose.prod.yml 裡，這樣推上 Git 會外洩喔。
+       env_file:
+         - .env
 
      # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS Cloud SQL)，若堅持自建才保留這段
      # db:
      #   image: mysql:8.4
-     #   ... 放資料庫帳密與掛載設定
+     #   restart: unless-stopped
+     #   environment:
+     #     MYSQL_DATABASE: '${DB_DATABASE}'
+     #     MYSQL_USER: '${DB_USERNAME}'
+     #     MYSQL_PASSWORD: '${DB_PASSWORD}'
+     #     MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+     #   volumes:
+     #     - db-data:/var/lib/mysql
 
    volumes:
      app-storage:
        driver: local
+     # db-data:
+     #   driver: local
    ```
 
 2. **在 Server 上的起手式**
