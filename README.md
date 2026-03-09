@@ -149,6 +149,11 @@ LABEL description="Laravel + FrankenPHP 終極純淨版"
 # 設定環境變數，讓伺服器知道跑在 8000 port
 ENV SERVER_NAME=":8000"
 
+# ⚠️ 這兩行是讓 Caddy (FrankenPHP 內建的 Web Server) 知道設定檔跟資料要存哪裡
+# 少了這兩行，Caddy 會報錯 "unable to get instance ID" 或 "could not clean default/global storage" 然後崩潰
+ENV XDG_CONFIG_HOME=/app/config
+ENV XDG_DATA_HOME=/app/data
+
 # 安裝額外的 PHP 擴展
 # (FrankenPHP 內建 install-php-extensions 工具，不用自己刻 apt-get，超佛心)
 RUN install-php-extensions \
@@ -170,8 +175,9 @@ WORKDIR /app
 # 將目前專案原始碼 COPY 進 Image
 COPY . /app
 
-# 設定存取權限給 web server (因為 FrankenPHP 預設以 root 啟動，只要確保儲存區可寫即可)
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+# 建立 Caddy 設定與資料目錄，並設定存取權限給 web server
+RUN mkdir -p /app/config /app/data \
+    && chown -R www-data:www-data /app/storage /app/bootstrap/cache /app/config /app/data
 
 # 執行正式版套件安裝 (不含 dev 依賴，保持瘦身)
 # 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
@@ -181,9 +187,16 @@ RUN composer install --optimize-autoloader --no-dev
 # 這裡強迫在打包 Image 時自動生一份出來，避免上線直接崩潰！
 RUN php artisan octane:install --server=frankenphp
 
-# 預設啟動 Laravel Octane 榨出極限效能 (注意：需要指定 admin-port 避免預設算式導致負數報錯)
-ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
+# ⚡ 預設啟動 Laravel Octane (使用官方推薦的 octane:frankenphp 指令)
+# 注意：這裡的 port 要跟上面的 SERVER_NAME 一致
+ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
 ```
+
+> [!CAUTION]
+> **為什麼是 `octane:frankenphp` 不是 `octane:start --server=frankenphp`？**
+> 
+> 根據 [Laravel 官方文件](https://laravel.com/docs/12.x/octane#frankenphp-via-docker)，官方 Docker 範例明確使用 `php artisan octane:frankenphp` 作為 ENTRYPOINT。
+> 如果你使用 `octane:start --server=frankenphp`，在某些版本會導致 Worker 無限崩潰重啟（報錯 `worker has not reached frankenphp_handle_request()`），因為兩者內部的啟動邏輯不同。請務必使用 `octane:frankenphp`！
 
 ### 2. 準備統一天下的 `docker-compose.yml`
 打開專案內的 `docker-compose.yml`，把裡面原本 Sail 幫你產生的東西全部清空，換成這套配置：
@@ -196,19 +209,19 @@ services:
             dockerfile: Dockerfile
         restart: unless-stopped
         ports:
-            - "80:80"        # 標準 HTTP
-            - "443:443"      # HTTPS
-            - "443:443/udp"  # 支援超快的 HTTP/3
+            - "8000:8000"    # HTTP (對應 Dockerfile 的 SERVER_NAME / --port)
         environment:
             - APP_ENV=${APP_ENV:-local}
             - APP_DEBUG=${APP_DEBUG:-true}
-            - OCTANE_SERVER=frankenphp
+            - XDG_CONFIG_HOME=/app/config
+            - XDG_DATA_HOME=/app/data
         volumes:
             # 【重要】：開發環境把這行打開，掛載本機目錄
             # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
             - .:/app
-        # 開發環境必備：傳遞 --watch 參數給 Dockerfile 的 ENTRYPOINT 達成 Hot Reloading
-        command: ["--watch"]
+        # 開發環境必備：傳遞 --workers=1 --max-requests=1 的參數，避免開發時佔用太多資源
+        # 加上 --watch 達成 Hot Reloading
+        command: ["--workers=1", "--max-requests=1", "--watch"]
         tty: true
         networks:
             - sail
@@ -404,11 +417,11 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    其實，**你在 Step 3 寫的那個 `Dockerfile` 就已經是 Production Ready 了！**
    這就是 FrankenPHP 的火力展示：開發跟正式環境完全可以用同一份食譜。回想一下我們在 Step 3 留下的最後一行：
    ```dockerfile
-   # 預設啟動 Laravel Octane 榨出極限效能
-   ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
+   # ⚡ 預設啟動 Laravel Octane (使用官方推薦的 octane:frankenphp 指令)
+   ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
    ```
    **這行就是正式上線時要執行的啟動指令！**
-   （開發時，我們是透過 `docker-compose.yml` 塞了 `command: ["--watch"]` 參數去觸發熱重載；正式機我們不傳這個指令，它就會用最純淨、最高效能的 Octane 模式跑起來。）
+   （開發時，我們是透過 `docker-compose.yml` 塞了 `command: ["--workers=1", "--max-requests=1", "--watch"]` 參數去觸發熱重載；正式機我們不傳這個指令，它就會用最純淨、最高效能的 Octane 模式跑起來。）
 
    **📝 範例：正式環境用的 `docker-compose.prod.yml`**
    *(正式區不需要再去搞 Nginx 跟 PHP-FPM 啦！直接起單一個包含了 FrankenPHP 的 app 映像檔即可，極致簡潔！)*
@@ -429,7 +442,8 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
        environment:
          - APP_ENV=production
          - APP_DEBUG=false
-         - OCTANE_SERVER=frankenphp
+         - XDG_CONFIG_HOME=/app/config
+         - XDG_DATA_HOME=/app/data
          # ⚠️ 防止 Mixed Content 錯誤：如果有用 Cloudflare 或外層 Nginx 做 SSL 反向代理
          # 請務必加上這行，強迫 Laravel 產生的所有資源連結都是 https 開頭
          - OCTANE_HTTPS=true
