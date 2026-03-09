@@ -438,23 +438,27 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          - path: .env
            required: true # (Docker Compose v2.24+) 如果外面沒有 .env 檔，會直接報錯拒絕啟動！強迫你一定要建好它！
 
-     # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS Cloud SQL)，若堅持自建才保留這段
-     # db:
-     #   image: mysql:8.4
-     #   restart: unless-stopped
-     #   environment:
-     #     MYSQL_DATABASE: '${DB_DATABASE}'
-     #     MYSQL_USER: '${DB_USERNAME}'
-     #     MYSQL_PASSWORD: '${DB_PASSWORD}'
-     #     MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
-     #   volumes:
-     #     - db-data:/var/lib/mysql
-
+     # (可選) 搜尋引擎：如果有使用 Laravel Scout + Meilisearch
+     meilisearch:
+       image: getmeili/meilisearch:latest
+       restart: unless-stopped
+       # ⚠️ 網路防呆：因為上面的 app 用了 host 模式，它們不在同一個 Docker 虛擬網段了！
+       # 所以 app 必須連線 `127.0.0.1:7700` 來找它。
+       # 為了安全，我們這裡只把 Port 綁定在主機的 `127.0.0.1` 內網，絕對不要只寫 `- "7700:7700"`，否則全世界都能連你的搜尋引擎！
+       ports:
+         - "127.0.0.1:7700:7700"
+       environment:
+         # 正式區千萬別用預設空密碼！要在 .env 裡自行設定一個長度夠的 MEILI_MASTER_KEY
+         MEILI_MASTER_KEY: '${MEILISEARCH_KEY}'
+         MEILI_ENV: 'production'
+       volumes:
+         - meili-data:/meili_data
+         
    volumes:
      app-storage:
        driver: local
-     # db-data:
-     #   driver: local
+     meili-data:
+       driver: local
    ```
 
 2. **在 Server 上的標準佈署流程 (第一次上線與後續推 Code 更新通用)**
