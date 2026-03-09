@@ -177,8 +177,8 @@ RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 # 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
 RUN composer install --optimize-autoloader --no-dev
 
-# 預設啟動 Laravel Octane 榨出極限效能
-ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80"]
+# 預設啟動 Laravel Octane 榨出極限效能 (注意：需要指定 admin-port 避免預設算式導致負數報錯)
+ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
 ```
 
 ### 2. 準備統一天下的 `docker-compose.yml`
