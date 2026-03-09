@@ -415,22 +415,27 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          context: .
          dockerfile: Dockerfile
        restart: unless-stopped
-       ports:
-         - "80:80"        # 標準 HTTP
-         - "443:443"      # HTTPS
-         - "443:443/udp"  # 支援 HTTP/3
+       # ⚡ 效能極致化：改用 host 網路模式，讓容器直接綁定伺服器網卡
+       # 拔除 ports 設定，省去 Docker NAT 轉換效能損耗，也更容易拿到用戶真實 IP！
+       network_mode: "host"
        environment:
          - APP_ENV=production
          - APP_DEBUG=false
          - OCTANE_SERVER=frankenphp
-       # ⚠️ 關鍵差異：正式環境請「不要」掛載 volume。
-       # 也就是不要寫 `volumes: - .:/app`
-       # 讓它讀取 Dockerfile 已經打包進 Image 的純淨程式碼，效能最快、最安全！
+       # ⚠️ 關鍵差異：正式環境「不要」把整包程式碼掛載進去 (勿用 .:/app)
+       # 讓它讀取 Dockerfile 打包好的純淨程式碼，效能最快、最安全！
+       # 但是！我們「必須」把 storage 資料夾獨立掛載出來，這樣上傳的圖片跟 Log 才不會在更新容器時消失：
+       volumes:
+         - app-storage:/app/storage
 
      # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS Cloud SQL)，若堅持自建才保留這段
      # db:
      #   image: mysql:8.4
      #   ... 放資料庫帳密與掛載設定
+
+   volumes:
+     app-storage:
+       driver: local
    ```
 
 2. **在 Server 上的起手式**
