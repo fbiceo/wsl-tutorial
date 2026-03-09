@@ -10,7 +10,7 @@
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
 - [Step 2. 寫下第一段 C 語言](#step-2-寫下第一段-c-語言)
 - [Step 3. 呼叫 Docker 臨時工來幫忙編譯與執行](#step-3-呼叫-docker-臨時工來幫忙編譯與執行)
-- [Step 4. 進階：用 Makefile 與 Docker Compose 統管專案](#step-4-進階用-makefile-與-docker-compose-統管專案)
+- [Step 4. 進階：用 Makefile 與 Docker Compose 統管專案](#step-4-進階：用-makefile-與-docker-compose-統管專案)
 - [結語](#結語)
 
 ---

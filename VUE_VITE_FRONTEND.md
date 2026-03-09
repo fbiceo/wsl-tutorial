@@ -11,12 +11,12 @@
 
 ## 目錄
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
-- [Step 2. 無中生有：用臨時工建立 Vue/Vite 專案](#step-2-無中生有用臨時工建立-vuevite-專案)
-- [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化統一天下的配置)
+- [Step 2. 無中生有：用臨時工建立 Vue/Vite 專案](#step-2-無中生有：用臨時工建立-vuevite-專案)
+- [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化：統一天下的配置)
 - [Step 4. 日常開發與 Hot Reloading](#step-4-日常開發與-hot-reloading)
 - [Step 5. Antigravity 完美協作起手式](#step-5-antigravity-完美協作起手式)
-- [Step 6. 開發完成：測試區與正式區的快速佈署](#step-6-開發完成測試區與正式區的快速佈署)
-- [Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-7-換電腦怎麼辦從-git-clone-接續開發)
+- [Step 6. 開發完成：測試區與正式區的快速佈署](#step-6-開發完成：測試區與正式區的快速佈署)
+- [Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-7-換電腦怎麼辦？從-git-clone-接續開發)
 
 ---
 

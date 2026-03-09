@@ -14,12 +14,12 @@
 
 ## 目錄
 - [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
-- [Step 2. 無中生有：建立全套 Laravel 專案與安裝 FrankenPHP](#step-2-無中生有建立全套-laravel-專案與安裝-frankenphp)
-- [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化統一天下的配置)
+- [Step 2. 無中生有：建立全套 Laravel 專案與安裝 FrankenPHP](#step-2-無中生有：建立全套-laravel-專案與安裝-frankenphp)
+- [Step 3. 專案的 Docker 化：統一天下的配置](#step-3-專案的-docker-化：統一天下的配置)
 - [Step 4. 日常開發與進階技巧](#step-4-日常開發與進階技巧)
 - [Step 5. Antigravity 完美協作起手式](#step-5-antigravity-完美協作起手式)
-- [Step 6. 開發完成：測試區與正式區的快速佈署](#step-6-開發完成測試區-testing-與正式區-production-的快速佈署)
-- [Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-7-換電腦怎麼辦從-git-clone-接續開發)
+- [Step 6. 開發完成：測試區 (Testing) 與正式區 (Production) 的快速佈署](#step-6-開發完成：測試區-testing-與正式區-production-的快速佈署)
+- [Step 7. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-7-換電腦怎麼辦？從-git-clone-接續開發)
 
 ---
 
