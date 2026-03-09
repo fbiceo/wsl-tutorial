@@ -170,12 +170,8 @@ WORKDIR /app
 # 將目前專案原始碼 COPY 進 Image
 COPY . /app
 
-# 設定存取權限給 web server (FrankenPHP 預設以 root 啟動但建議以 www-data 執行 worker)
-RUN chown -R www-data:www-data /app
-
-# ⚠️ 關鍵防呆：從這一步開始，切換成 www-data 身分去執行後續動作。
-# 這樣可以避免以 root 啟動 php artisan octane:start 時，導致 worker 權限錯亂 (has not reached frankenphp_handle_request)
-USER www-data
+# 設定存取權限給 web server (因為 FrankenPHP 預設以 root 啟動，只要確保儲存區可寫即可)
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 
 # 執行正式版套件安裝 (不含 dev 依賴，保持瘦身)
 # 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
@@ -488,6 +484,22 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    > [!NOTE]
    > **「咦？為什麼 migrate 要加 `--force`？會把資料刪掉嗎？」**
    > 別擔心，`--force` **不會**刪除你的資料庫。當 Laravel 偵測到身處 `production` 環境時，執行任何 migrate 都會跳出警告問「你確定要執行嗎？(Y/n)」，加上 `--force` 只是為了告訴系統「對，我確定，跳過詢問直接跑完」，是安全且必備的選項。*(如果要刪除重建那叫 `migrate:fresh`，在正式機千萬別亂下！)*
+
+   > [!WARNING]
+   > **🚨 故障排除：正式區啟動失敗出現 `failed to initialize workers` 怎麼解？**
+   > 如果你下 `docker compose up -d` 後網頁打不開，看 Log 發現這行可怕的紅字：
+   > `worker public/frankenphp-worker.php has not reached frankenphp_handle_request()`
+   > 
+   > **發生原因**：這代表 PHP 在嘗試啟動 Laravel 框架的「第一瞬間」就發生了致命錯誤（Fatal Error）導致崩潰。
+   > **常見兩大兇手**：
+   > 1. **忘記生金鑰**：正式機的 `.env` 裡面缺少了 `APP_KEY`，導致 Laravel 崩潰。請執行：`docker compose -f docker-compose.prod.yml exec app php artisan key:generate` 後再重啟容器。
+   > 2. **缺少啟動檔**：你的專案沒有把 `public/frankenphp-worker.php` 推進 Git 裡面，導致正式機抓不到腳本。
+   > 
+   > 💡 **終極抓漏指令**：想知道它到底是哪裡出問題？請直接執行這個指令，它會讓隱藏在白畫面底下的「真實 PHP 錯訊」原形畢露：
+   > ```bash
+   > docker compose -f docker-compose.prod.yml exec app php public/frankenphp-worker.php
+   > ```
+   > 看到真實錯誤訊息後，通常就能一秒破案了！
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
 
