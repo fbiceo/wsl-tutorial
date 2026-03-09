@@ -203,14 +203,22 @@ services:
       # 【重要】：開發環境把這行打開，掛載本機目錄
       # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
       - .:/app
-    # 開發環境必備：覆寫 Dockerfile 指令加入 --watch 參數達成 Hot Reloading
-    command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
-    tty: true
+        # 開發環境必備：覆寫 Dockerfile 指令加入 --watch 參數達成 Hot Reloading
+        command: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=80 --watch
+        tty: true
+        networks:
+            - sail
 
-  # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
-  # db:
-  #   image: mariadb:10.6
-  #   ...
+    # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
+    # db:
+    #   image: mariadb:10.6
+    #   networks:
+    #       - sail
+    #   ...
+
+networks:
+    sail:
+        driver: bridge
 ```
 
 也就是說，我們把原本繁雜的 Nginx、PHP-FPM，加上 Sail 裡面各種雜七雜八的容器，全部收斂成一個高效的 `app` 容器！
