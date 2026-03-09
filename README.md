@@ -397,31 +397,17 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    在專案根目錄準備一個 `Dockerfile` (專門用來把程式碼 COPY 進去並安裝依賴) 和一個正式版的 `docker-compose.prod.yml`。
 
    **📝 範例：正式環境用的 `Dockerfile`**
-   *(使用官方 PHP 搭配 Composer，並安裝必要的 Laravel 擴展套件)*
+   其實，**你在 Step 3 寫的那個 `Dockerfile` 就已經是 Production Ready 了！**
+   這就是 FrankenPHP 的火力展示：開發跟正式環境完全可以用同一份食譜。回想一下我們在 Step 3 留下的最後一行：
    ```dockerfile
-   FROM php:8.4-fpm
-
-   # 安裝系統與 PHP 依賴
-   RUN apt-get update && apt-get install -y \
-       git curl libpng-dev libonig-dev libxml2-dev zip unzip \
-       && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
-
-   # 安裝 Composer
-   COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-   # 設定工作目錄
-   WORKDIR /var/www/html
-
-   # 將目前專案原始碼 COPY 進 Image，並設定權限
-   COPY . .
-   RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-   # 執行正式版套件安裝 (不含 dev 依賴)
-   RUN composer install --optimize-autoloader --no-dev
+   # 預設啟動 Laravel Octane 榨出極限效能
+   ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80", "--admin-port=2019"]
    ```
+   **這行就是正式上線時要執行的啟動指令！**
+   （開發時，我們是透過 `docker-compose.yml` 塞了 `command: ["--watch"]` 參數去觸發熱重載；正式機我們不傳這個指令，它就會用最純淨、最高效能的 Octane 模式跑起來。）
 
    **📝 範例：正式環境用的 `docker-compose.prod.yml`**
-   *(只起關鍵服務：自訂的 app 映像檔、Nginx 負責對外，以及獨立的 MySQL。拔除 Sail 的開發用工具)*
+   *(正式區不需要再去搞 Nginx 跟 PHP-FPM 啦！直接起單一個包含了 FrankenPHP 的 app 映像檔即可，極致簡潔！)*
    ```yaml
    services:
      app:
@@ -429,27 +415,22 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          context: .
          dockerfile: Dockerfile
        restart: unless-stopped
+       ports:
+         - "80:80"        # 標準 HTTP
+         - "443:443"      # HTTPS
+         - "443:443/udp"  # 支援 HTTP/3
        environment:
          - APP_ENV=production
          - APP_DEBUG=false
-       volumes:
-         - .:/var/www/html
-     
-     web:
-       image: nginx:alpine
-       restart: unless-stopped
-       ports:
-         - "80:80"
-       volumes:
-         - .:/var/www/html
-         - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
-       depends_on:
-         - app
+         - OCTANE_SERVER=frankenphp
+       # ⚠️ 關鍵差異：正式環境請「不要」掛載 volume。
+       # 也就是不要寫 `volumes: - .:/app`
+       # 讓它讀取 Dockerfile 已經打包進 Image 的純淨程式碼，效能最快、最安全！
 
-     # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS)，若堅持自建才加上這段
+     # (可選) 正式機的資料庫通常建議買雲端託管 (如 AWS RDS Cloud SQL)，若堅持自建才保留這段
      # db:
-     #   image: mysql:8.0
-     #   ... 省略資料庫掛載設定
+     #   image: mysql:8.4
+     #   ... 放資料庫帳密與掛載設定
    ```
 
 2. **在 Server 上的起手式**
