@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>潔癖工程師的終極開發環境</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Windows + WSL + Docker + Antigravity (零污染實戰指南)">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  
+  <!-- 使用 Vue 風格的主題 -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+</head>
+<body>
+  <div id="app">載入中，這裡即將出現極致的乾淨環境...</div>
+  <script>
+    window.$docsify = {
+      name: '零污染開發指南',
+      repo: '', // 如果你有 Github 網址可以填在這裡，例如 'https://github.com/你的帳號/wsl-tutorial'
+      
+      // 啟用側邊欄加載 _sidebar.md
+      loadSidebar: true,
+      
+      // 依據 # 標籤自動生成目錄 (最高抓到 h3)
+      subMaxLevel: 3,
+
+      // 自動將第一篇文章當作首頁
+      homepage: 'README.md',
+
+      // 搜尋功能設定
+      search: {
+        maxAge: 86400000, 
+        paths: 'auto',
+        placeholder: '搜尋教學內容',
+        noData: '找不到結果',
+        depth: 3
+      }
+    }
+  </script>
+  
+  <!-- Docsify 核心腳本 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  
+  <!-- 程式碼語法高亮外掛 (Bash, YAML, Dockerfile 等) -->
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-docker.min.js"></script>
+  
+  <!-- 搜尋功能外掛 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <!-- 複製程式碼外掛 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+</body>
+</html>

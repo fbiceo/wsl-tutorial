@@ -5,6 +5,11 @@
 這也是為什麼我們最後決定走上這條「絕對純淨」的道路。這篇文章要教你的，是一個非常極端但療癒的流派：
 我們在一台全新的 Windows 電腦上，**只准裝 WSL、Docker 和 Antigravity**。什麼本機的 PHP、Node.js、Python，通通不准裝！我們要讓 Windows 客廳保持乾淨，所有的髒活，都交給 Docker 這個貨櫃去處理。
 
+> [!NOTE]
+> 這是專為 **Backend (Laravel + FrankenPHP)** 打造的開發指南。
+> 如果你負責的是前端 (Vue / Vite) 介面開發，請前往：
+> 👉 **[前端篇：Vue / Vite + Docker 零污染實戰](./VUE_VITE_FRONTEND.md)**
+
 ---
 
 ## 📖 目錄
@@ -437,3 +442,5 @@ docker compose exec app php artisan migrate:fresh --seed
 
 ### 結語
 這套「零污染開發流」一開始設定要轉一兩個彎，但相信我，幾個月後你會感謝現在的自己。尤其是搭上 FrankenPHP 這個黑科技，當你換電腦只要裝個 Docker 就能三分鐘回到完美的開發狀態... 這種把混亂收斂到極致的感覺，就是我們工程師少數能自我掌控的療癒時刻啊哈哈！
+
+👉 準備好開發前端了嗎？請前往：**[前端篇：Vue / Vite + Docker 零污染實戰](./VUE_VITE_FRONTEND.md)**
