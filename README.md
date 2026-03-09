@@ -7,6 +7,18 @@
 
 ---
 
+## 📖 目錄
+- [Step 1. 打造純淨地基 (基礎環境準備)](#step-1-打造純淨地基-基礎環境準備)
+- [Step 2. 無中生有：用一行指令建立含全套服務的 Laravel 專案](#step-2-無中生有用一行指令建立含全套服務的-laravel-專案)
+- [Step 3. 專案的 Docker 化與啟動](#step-3-專案的-docker-化與啟動)
+- [Step 4. Sail 進階開發技巧 (強烈建議)](#step-4-sail-進階開發技巧-強烈建議)
+- [Step 5. Antigravity 完美協作起手式](#step-5-antigravity-完美協作起手式)
+- [Step 6. 開發完成：測試區與正式區的快速佈署](#step-6-開發完成測試區-testing-與正式區-production-的快速佈署)
+- [Step 7. 同場加映：效能狂的最終兵器 (FrankenPHP 統一開發與上線)](#step-7-同場加映效能狂的最終兵器-frankenphp-統一開發與上線)
+- [Step 8. 換電腦怎麼辦？(從 Git Clone 接續開發)](#step-8-換電腦怎麼辦從-git-clone-接續開發)
+
+---
+
 ## Step 1. 打造純淨地基 (基礎環境準備)
 
 1. **啟用 WSL2 (安裝 Ubuntu)**
@@ -23,6 +35,8 @@
    這是我們最強大的 AI 協作編輯器。裝好就好，先放著。
 
 *(重要提醒：到目前為止，你的電腦還是香的，千萬不要手癢跑去 WSL 裡面敲什麼 `apt install php`！)*
+
+[↑ 回到目錄](#-目錄)
 
 ---
 
@@ -79,6 +93,8 @@ docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/h
 
 無論你選做法A還是做法B，現在 `~/projects/my-clean-app` 裡面都有熱騰騰、全副武裝的 Laravel 專案了，重點是你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
+[↑ 回到目錄](#-目錄)
+
 ---
 
 ## Step 3. 專案的 Docker 化與啟動
@@ -118,6 +134,8 @@ cd my-clean-app
     └── artisan                  # Laravel 專用指令工具
 ```
 在這裡面，`docker-compose.yml` 就像是專案的「基礎建設草圖」，只要有它，不管換到哪台電腦，下達 `docker compose up -d` 就能原音重現一模一樣的開發環境。
+
+[↑ 回到目錄](#-目錄)
 
 ---
 
@@ -167,6 +185,8 @@ sail up -d
 ```
 *(注意：`-v` 會一併把掛載的 Volume 清理掉，資料庫可能會重置，請在備份或確認不是正式機後再加這個參數！)*
 
+[↑ 回到目錄](#-目錄)
+
 ---
 
 ## Step 5. Antigravity 完美協作起手式
@@ -185,6 +205,8 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 2. 進入專案資料夾跑 `sail up -d` (或者你自己寫好的 `docker compose up -d`)
 3. 用 Antigravity 開啟 WSL 上的資料夾進行開發修改
 4. 下班關機前敲個 `sail down`，乾乾淨淨。
+
+[↑ 回到目錄](#-目錄)
 
 ---
 
@@ -292,9 +314,170 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    docker compose -f docker-compose.prod.yml exec laravel.test php artisan migrate --force
    ```
 
-**給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server 只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
+**給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
+
+[↑ 回到目錄](#-目錄)
+
+---
+
+## Step 7. 同場加映：效能狂的最終兵器 (FrankenPHP 統一開發與上線)
+
+如果你跟我一樣，覺得「正式機還要起一個 Nginx 配一個 PHP-FPM」看了很不順眼，想追求極致的乾淨跟效能... 那你絕對不能錯過 **FrankenPHP**。做工程有時候真的很累，但看到架構變乾淨，真心覺得滿療癒的哈哈。
+
+FrankenPHP 是一個用 Go 寫的現代化伺服器，**直接內建了 Web Server 跟 PHP 執行環境**，讓你可以完全拋棄 Nginx！
+
+要在這套「零污染環境」中使用 FrankenPHP，從開發一路順順打到正式上線，請這樣設定：
+
+### 1. 安裝 Laravel Octane
+在你的開發環境 (Sail) 中，先裝好 Octane 套件，並選擇 FrankenPHP 作為引擎：
+```bash
+sail composer require laravel/octane
+sail artisan octane:install --server=frankenphp
+```
+
+### 2. 準備 FrankenPHP 專用的 Dockerfile
+在專案根目錄建立 `Dockerfile`，我們基於官方的 FrankenPHP 映像檔：
+
+```dockerfile
+# 基礎映像檔：官方 FrankenPHP (自帶 Caddy web server 與 PHP)
+FROM dunglas/frankenphp:php8.4
+
+# 加入一些 LABEL 讓同事知道這是什麼 (人類友善)
+LABEL maintainer="你的名字 <your.email@example.com>"
+LABEL description="Laravel + FrankenPHP 終極純淨版"
+
+# 設定環境變數，讓伺服器知道跑在 80 port
+ENV SERVER_NAME=":80"
+
+# 安裝額外的 PHP 擴展
+# (FrankenPHP 內建 install-php-extensions 工具，不用自己刻 apt-get，超佛心)
+RUN install-php-extensions \
+    pdo_mysql \
+    gd \
+    mbstring \
+    xml \
+    curl \
+    zip \
+    mongodb \
+    pcntl \
+    redis
+
+# 安裝 Composer (從官方映像檔複製過來)
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# 將目前專案原始碼 COPY 進 Image
+COPY . /app
+
+# 設定存取權限給 web server
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+
+# 安裝正式版套件 (不含 dev 依賴，保持瘦身)
+# 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
+RUN composer install --optimize-autoloader --no-dev
+
+# 預設啟動 Laravel Octane 榨出極限效能
+ENTRYPOINT ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=80"]
+```
+
+### 3. 準備統一天下的 `docker-compose.yml`
+我們捨棄原本的分離式架構，寫一套 `docker-compose.yml` 讓開發和正式環境都能共用：
+
+```yaml
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"        # 標準 HTTP
+      - "443:443"      # HTTPS
+      - "443:443/udp"  # 支援超快的 HTTP/3
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - OCTANE_SERVER=frankenphp
+    volumes:
+      # 【重要】：如果是「開發環境」，就把這行打開，把本機目錄掛上去蓋掉容器內的 /app
+      # 這樣你在 Antigravity 寫 Code 才會即時生效！
+      # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
+      - .:/app
+    tty: true
+
+  # 下面可以依照需求掛載你的 MariaDB / MySQL / MongoDB
+  # db:
+  #   image: mariadb:10.6
+  #   ...
+```
+
+**開發時的通暢體驗：**
+1. `docker compose up -d` 起起來。
+2. 因為 Volume 掛載的關係，你在 Windows Antigravity 改的 code 會即時同步。
+3. 若需要跑指令就敲：`docker compose exec app php artisan make:controller`
+
+**上線時的痛快感：**
+1. 將 Volume 掛載註解掉。
+2. 在 Server 跑 `docker compose up -d --build`。
+3. 你的 Server 直接化身一台效能野獸，沒有 Nginx、沒有 FPM 二手交接！單一 Container 直球對決高併發請求，無比清淨。
+
+[↑ 回到目錄](#-目錄)
+
+---
+
+## Step 8. 換電腦怎麼辦？(從 Git Clone 接續開發)
+
+當你換了一台新電腦，或是團隊有新同事加入時，該如何無痛接手這個「零污染」專案呢？
+我們不需要因為沒有 PHP 而感到慌張，因為 Docker 會搞定一切！
+
+### 1. 把程式碼拉下來
+首先，在你的新電腦 (或新同事的電腦) 裡的 WSL 中，把專案從 Git 拉下來：
+```bash
+cd ~/projects
+git clone <你的-git-repo-網址> my-clean-app
+cd my-clean-app
+```
+
+### 2. 準備 `.env` 檔
+專案通常不會把 `.env` 放進版本控制，所以你要複製一份給它：
+```bash
+cp .env.example .env
+```
+
+### 3. 用「臨時工」幫你裝滿整車的 `vendor` 套件
+現在我們專案裡空空的，連 `sail` 都沒有。如果你敲 `composer install` 系統會無情地跟你說 `command not found` (因為我們很乾淨，沒裝 PHP 啊！)。
+
+所以我們要再派一次 Docker 臨時工出場，請他以本機使用者的權限，幫我們掛載目錄並執行 Composer：
+```bash
+docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v $(pwd):/var/www/html \
+    -w /var/www/html \
+    laravelsail/php84-composer:latest \
+    composer install --ignore-platform-reqs
+```
+*(注意：這裡的 `--ignore-platform-reqs` 是告訴 Composer 不要機車去檢查本機有沒有 PHP 跟對應的版本，直接乖乖把 package 下載好放到 vendor 裡面就好！)*
+
+### 4. 啟動環境與初始化
+感謝剛剛的臨時工幫忙，現在我們的 `./vendor/bin/sail` 已經長出來了！接下來就跟平常一樣香了：
+
+```bash
+# 啟動背景服務 (MySQL, Redis, 你的 App 容器等)
+sail up -d
+
+# 產生加密密鑰
+sail artisan key:generate
+
+# 執行資料庫遷移與資料填充
+sail artisan migrate:fresh --seed
+```
+
+只要簡單四步，新電腦上的開發環境就 100% 復活了！
+
+[↑ 回到目錄](#-目錄)
 
 ---
 
 ### 結語
-這套「零污染開發流」一開始設定要轉一兩個彎，但相信我，幾個月後你會感謝現在的自己。當有一天你要換電腦，你只要把專案 Copy 過去，裝個 Docker 把機器開起來，三分鐘後你又可以繼續開發了。這就是工程師少數能自我掌控的療癒時刻啊哈哈！
+這套「零污染開發流」一開始設定要轉一兩個彎，但相信我，幾個月後你會感謝現在的自己。尤其是搭上 FrankenPHP 這個黑科技，當你換電腦只要裝個 Docker 就能三分鐘回到完美的開發狀態... 這種把混亂收斂到極致的感覺，就是我們工程師少數能自我掌控的療癒時刻啊哈哈！
