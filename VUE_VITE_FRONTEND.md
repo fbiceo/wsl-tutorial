@@ -250,4 +250,6 @@ docker compose up -d
 
 這種「隨時隨地，只要有 Docker 就能開發」的確定感，是不是比起以往在那邊 Debug 環境變數要療癒得多了呢？
 
-👉 回頭複習：[後端 API 開發指南 (Laravel + FrankenPHP)](./README.md)
+👉 回頭複習或探索更多：
+- [後端 API 開發指南 (Laravel + FrankenPHP)](./README.md)
+- [C 語言篇：純淨 Docker 編譯環境](./C_LANG_ENV.md)

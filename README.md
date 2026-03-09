@@ -443,4 +443,6 @@ docker compose exec app php artisan migrate:fresh --seed
 ### 結語
 這套「零污染開發流」一開始設定要轉一兩個彎，但相信我，幾個月後你會感謝現在的自己。尤其是搭上 FrankenPHP 這個黑科技，當你換電腦只要裝個 Docker 就能三分鐘回到完美的開發狀態... 這種把混亂收斂到極致的感覺，就是我們工程師少數能自我掌控的療癒時刻啊哈哈！
 
-👉 準備好開發前端了嗎？請前往：**[前端篇：Vue / Vite + Docker 零污染實戰](./VUE_VITE_FRONTEND.md)**
+👉 準備好開發其他領域了嗎？請前往：
+- **[前端篇：Vue / Vite + Docker 零污染實戰](./VUE_VITE_FRONTEND.md)**
+- **[C 語言篇：純淨 Docker 編譯環境](./C_LANG_ENV.md)**
