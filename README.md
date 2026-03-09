@@ -170,10 +170,14 @@ WORKDIR /app
 # 將目前專案原始碼 COPY 進 Image
 COPY . /app
 
-# 設定存取權限給 web server
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+# 設定存取權限給 web server (FrankenPHP 預設以 root 啟動但建議以 www-data 執行 worker)
+RUN chown -R www-data:www-data /app
 
-# 安裝正式版套件 (不含 dev 依賴，保持瘦身)
+# ⚠️ 關鍵防呆：從這一步開始，切換成 www-data 身分去執行後續動作。
+# 這樣可以避免以 root 啟動 php artisan octane:start 時，導致 worker 權限錯亂 (has not reached frankenphp_handle_request)
+USER www-data
+
+# 執行正式版套件安裝 (不含 dev 依賴，保持瘦身)
 # 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
 RUN composer install --optimize-autoloader --no-dev
 
@@ -426,6 +430,9 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          - APP_ENV=production
          - APP_DEBUG=false
          - OCTANE_SERVER=frankenphp
+         # ⚠️ 防止 Mixed Content 錯誤：如果有用 Cloudflare 或外層 Nginx 做 SSL 反向代理
+         # 請務必加上這行，強迫 Laravel 產生的所有資源連結都是 https 開頭
+         - OCTANE_HTTPS=true
        # ⚠️ 關鍵差異：正式環境「不要」把整包程式碼掛載進去 (勿用 .:/app)
        # 讓它讀取 Dockerfile 打包好的純淨程式碼，效能最快、最安全！
        # 但是！我們「必須」把 storage 資料夾獨立掛載出來，這樣上傳的圖片跟 Log 才不會在更新容器時消失：
