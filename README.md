@@ -135,24 +135,37 @@ cd my-clean-app
 >
 > 簡單來說：**`Dockerfile` 決定了「內容物是什麼」，而 `docker-compose.yml` 決定了這些內容物要「怎麼合作跟對外營業」。**
 
-### 1. 準備 FrankenPHP 專用 Dockerfile
-在專案根目錄建立 `Dockerfile`，負責定義我們應用程式的靈魂：
+### 1. 準備 FrankenPHP 專用 Dockerfile（多階段建置版）
+在專案根目錄建立 `Dockerfile`，這份食譜使用了 Docker 的「**多階段建置 (Multi-stage Build)**」技巧：先請 Node.js 臨時工編譯前端資源 (Vite)，再把成果搬進最終的 FrankenPHP 映像檔，讓正式版 Image 不會殘留 `node_modules` 等開發垃圾，保持極致瘦身：
 
 ```dockerfile
-# 基礎映像檔：官方 FrankenPHP (自帶 Caddy web server 與 PHP)
+# ==========================================
+# 階段 1：編譯前端資源 (使用 Node.js)
+# ==========================================
+FROM node:20-alpine AS frontend
+
+WORKDIR /app
+
+# 複製 package 檔案以利用 Docker 快取 (只要 package.json 沒變，就不用重新 npm install)
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# 複製其餘原始碼進行打包 (例如 Laravel Vite 產出的 public/build)
+COPY . .
+RUN npm run build
+
+
+# ==========================================
+# 階段 2：建立正式執行環境 (FrankenPHP)
+# ==========================================
 FROM dunglas/frankenphp:php8.4
 
 # 加入一些 LABEL 讓同事知道這是什麼 (人類友善)
 LABEL maintainer="你的名字 <your.email@example.com>"
 LABEL description="Laravel + FrankenPHP 終極純淨版"
 
-# 設定環境變數，讓伺服器知道跑在 8000 port
+# 設定環境變數，讓 FrankenPHP 知道跑在 8000 port
 ENV SERVER_NAME=":8000"
-
-# ⚠️ 這兩行是讓 Caddy (FrankenPHP 內建的 Web Server) 知道設定檔跟資料要存哪裡
-# 少了這兩行，Caddy 會報錯 "unable to get instance ID" 或 "could not clean default/global storage" 然後崩潰
-ENV XDG_CONFIG_HOME=/app/config
-ENV XDG_DATA_HOME=/app/data
 
 # 安裝額外的 PHP 擴展
 # (FrankenPHP 內建 install-php-extensions 工具，不用自己刻 apt-get，超佛心)
@@ -162,6 +175,7 @@ RUN install-php-extensions \
     mbstring \
     xml \
     curl \
+    intl \
     zip \
     mongodb \
     pcntl \
@@ -175,30 +189,78 @@ WORKDIR /app
 # 將目前專案原始碼 COPY 進 Image
 COPY . /app
 
-# 建立 Caddy 設定與資料目錄，並設定存取權限給 web server
-RUN mkdir -p /app/config /app/data \
-    && chown -R www-data:www-data /app/storage /app/bootstrap/cache /app/config /app/data
+# 🔑 【關鍵】從「階段 1」將編譯好的前端靜態資源直接複製過來
+# 這樣正式版就自帶編譯完的 CSS/JS，不需要在伺服器上裝 Node.js！
+COPY --from=frontend /app/public/build /app/public/build
+
+# 設定存取權限給 web server (Caddy 的資料目錄與 Laravel 的 log/cache 寫入)
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+
+# 複製 Entrypoint 腳本並設定可執行權限
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # 執行正式版套件安裝 (不含 dev 依賴，保持瘦身)
-# 開發時這個動作會被本機 Volume 蓋掉，所以沒關係
 RUN composer install --optimize-autoloader --no-dev
+RUN php artisan storage:link
 
-# ⚠️ 防呆機制：確保 FrankenPHP 啟動檔存在 (萬一你忘記把 public/frankenphp-worker.php 推上 Git)
-# 這裡強迫在打包 Image 時自動生一份出來，避免上線直接崩潰！
-RUN php artisan octane:install --server=frankenphp
+# 設定 Entrypoint 腳本，讓它在每次容器啟動時自動修復 Storage 權限
+ENTRYPOINT ["docker-entrypoint.sh"]
 
-# ⚡ 預設啟動 Laravel Octane (使用官方推薦的 octane:frankenphp 指令)
-# 注意：這裡的 port 要跟上面的 SERVER_NAME 一致
-ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
+# ⚡ 預設啟動 Laravel Octane 榨出極限效能
+CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
 ```
 
-> [!CAUTION]
-> **為什麼是 `octane:frankenphp` 不是 `octane:start --server=frankenphp`？**
-> 
-> 根據 [Laravel 官方文件](https://laravel.com/docs/12.x/octane#frankenphp-via-docker)，官方 Docker 範例明確使用 `php artisan octane:frankenphp` 作為 ENTRYPOINT。
-> 如果你使用 `octane:start --server=frankenphp`，在某些版本會導致 Worker 無限崩潰重啟（報錯 `worker has not reached frankenphp_handle_request()`），因為兩者內部的啟動邏輯不同。請務必使用 `octane:frankenphp`！
+> [!NOTE]
+> **「ENTRYPOINT 跟 CMD 到底差在哪？為什麼要拆成兩行？」**
+>
+> 簡單來說：`ENTRYPOINT` 是「每次容器啟動時一定會先跑的前置腳本」，而 `CMD` 則是「前置腳本跑完後，接著要執行的主程式」。
+> 拆開的好處是：我們可以在 `docker-entrypoint.sh` 裡面做一些必要的準備工作（像是修復 Storage 權限），做完之後才把控制權交給 Octane 伺服器。
+> 而在開發環境裡，我們還能透過 `docker-compose.yml` 的 `command` 參數輕鬆覆蓋 `CMD`，例如加上 `--watch` 來啟用熱重載，非常彈性！
 
-### 2. 準備統一天下的 `docker-compose.yml`
+### 2. 準備 Entrypoint 啟動腳本
+在專案根目錄建立 `docker-entrypoint.sh`，這個腳本會在每次容器啟動時自動執行，幫我們處理 Storage 目錄的初始化與權限修復：
+
+```bash
+#!/bin/sh
+set -e
+
+# ==========================================
+# Laravel Startup Preparation Script
+# ==========================================
+
+echo "🚀 Starting Laravel startup preparation..."
+
+# 1. 確保 /app/storage 目錄存在
+# (如果是第一次掛載全新的 volume，資料夾可能不全)
+mkdir -p /app/storage/app/public
+mkdir -p /app/storage/framework/cache/data
+mkdir -p /app/storage/framework/sessions
+mkdir -p /app/storage/framework/testing
+mkdir -p /app/storage/framework/views
+mkdir -p /app/storage/logs
+
+# 2. 自動修復 storage 目錄權限
+# 這一步非常重要！如果是開發者用 root 建立的檔案或 Docker Volume
+# 會導致 www-data 無法寫入 Log 或是上傳圖片
+echo "🔒 Fixing permissions for /app/storage..."
+chown -R www-data:www-data /app/storage
+chown -R www-data:www-data /app/bootstrap/cache
+
+echo "✅ Storage initialization completed."
+
+# ==========================================
+# 啟動原本的 CMD (把控制權交給 Octane)
+# ==========================================
+echo "✅ Preparation complete. Starting server..."
+exec "$@"
+```
+
+> [!WARNING]
+> **別忘了這個腳本的換行格式！**
+> 如果你是在 Windows 上編輯這個檔案，請確認存檔時使用 **LF** 換行（不是 CRLF），否則 Linux 容器會無法執行它。在 Antigravity 底部的狀態列可以點擊切換換行格式。
+
+### 3. 準備統一天下的 `docker-compose.yml`
 打開專案內的 `docker-compose.yml`，把裡面原本 Sail 幫你產生的東西全部清空，換成這套配置：
 
 ```yaml
@@ -213,15 +275,12 @@ services:
         environment:
             - APP_ENV=${APP_ENV:-local}
             - APP_DEBUG=${APP_DEBUG:-true}
-            - XDG_CONFIG_HOME=/app/config
-            - XDG_DATA_HOME=/app/data
         volumes:
             # 【重要】：開發環境把這行打開，掛載本機目錄
             # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
             - .:/app
-        # 開發環境必備：傳遞 --workers=1 --max-requests=1 的參數，避免開發時佔用太多資源
-        # 加上 --watch 達成 Hot Reloading
-        command: ["--workers=1", "--max-requests=1", "--watch"]
+        # 開發環境必備：傳遞 --watch 參數給 Dockerfile 的 ENTRYPOINT 達成 Hot Reloading
+        command: ["--watch"]
         tty: true
         networks:
             - sail
@@ -415,13 +474,12 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
 
    **📝 範例：正式環境用的 `Dockerfile`**
    其實，**你在 Step 3 寫的那個 `Dockerfile` 就已經是 Production Ready 了！**
-   這就是 FrankenPHP 的火力展示：開發跟正式環境完全可以用同一份食譜。回想一下我們在 Step 3 留下的最後一行：
-   ```dockerfile
-   # ⚡ 預設啟動 Laravel Octane (使用官方推薦的 octane:frankenphp 指令)
-   ENTRYPOINT ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019"]
-   ```
-   **這行就是正式上線時要執行的啟動指令！**
-   （開發時，我們是透過 `docker-compose.yml` 塞了 `command: ["--workers=1", "--max-requests=1", "--watch"]` 參數去觸發熱重載；正式機我們不傳這個指令，它就會用最純淨、最高效能的 Octane 模式跑起來。）
+   這就是多階段建置 + FrankenPHP 的火力展示：開發跟正式環境完全可以用同一份食譜。回想一下我們在 Step 3 的設計：
+   - `ENTRYPOINT` 負責每次啟動時先跑 `docker-entrypoint.sh` 修復 Storage 權限
+   - `CMD` 則是正式啟動 Octane 伺服器
+   - 前端資源在「階段 1」就已經編譯打包好了
+   
+   **開發時**，我們透過 `docker-compose.yml` 的 `command` 覆蓋 `CMD` 加上 `--watch` 來觸發熱重載；**正式機**不傳這個參數，它就會用最純淨、最高效能的 Octane 模式跑起來。
 
    **📝 範例：正式環境用的 `docker-compose.prod.yml`**
    *(正式區不需要再去搞 Nginx 跟 PHP-FPM 啦！直接起單一個包含了 FrankenPHP 的 app 映像檔即可，極致簡潔！)*
@@ -442,16 +500,11 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
        environment:
          - APP_ENV=production
          - APP_DEBUG=false
-         - XDG_CONFIG_HOME=/app/config
-         - XDG_DATA_HOME=/app/data
-         # ⚠️ 防止 Mixed Content 錯誤：如果有用 Cloudflare 或外層 Nginx 做 SSL 反向代理
-         # 請務必加上這行，強迫 Laravel 產生的所有資源連結都是 https 開頭
-         - OCTANE_HTTPS=true
        # ⚠️ 關鍵差異：正式環境「不要」把整包程式碼掛載進去 (勿用 .:/app)
        # 讓它讀取 Dockerfile 打包好的純淨程式碼，效能最快、最安全！
        # 但是！我們「必須」把 storage 資料夾獨立掛載出來，這樣上傳的圖片跟 Log 才不會在更新容器時消失：
        volumes:
-         - app-storage:/app/storage
+         - ./storage:/app/storage
        # ⚠️ 正式機的 .env 怎麼辦？
        # 直接在伺服器專案根目錄建立一份 `.env` 檔案，Docker Compose 自動會讀取進去！
        # 不要把資料庫密碼寫死在下面的 docker-compose.prod.yml 裡，這樣推上 Git 會外洩喔。
@@ -474,13 +527,21 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          MEILI_ENV: 'production'
        volumes:
          - meili-data:/meili_data
-         
+
    volumes:
-     app-storage:
-       driver: local
      meili-data:
        driver: local
    ```
+
+   > [!IMPORTANT]
+   > **Storage 掛載方式：`./storage` vs Named Volume**
+   >
+   > 注意到了嗎？這裡我們用的是 `./storage:/app/storage`（Bind Mount，直接映射主機目錄），而不是 `app-storage:/app/storage`（Named Volume）。
+   > 兩者的差別：
+   > - **Bind Mount (`./storage`)** → 檔案直接存在伺服器的專案目錄裡，你可以 `ls ./storage/logs` 直接查看 Log，直覺又方便。
+   > - **Named Volume (`app-storage`)** → 檔案由 Docker 管理存放在 Docker 內部路徑，需要 `docker volume inspect` 才能找到實體位置。
+   >
+   > 我們選擇 Bind Mount 是因為正式環境偵錯時，能直接在伺服器上 `cat storage/logs/laravel.log` 超級方便！
 
 2. **在 Server 上的標準佈署流程 (第一次上線與後續推 Code 更新通用)**
    因為我們正式環境**沒有掛載目錄**，程式碼是「烤」在 Image 裡面的。所以無論是第一次把專案 clone 下來，還是日後改了 Code 要上線，請統一依照這個「黃金四步」：
@@ -504,34 +565,15 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    > 別擔心，`--force` **不會**刪除你的資料庫。當 Laravel 偵測到身處 `production` 環境時，執行任何 migrate 都會跳出警告問「你確定要執行嗎？(Y/n)」，加上 `--force` 只是為了告訴系統「對，我確定，跳過詢問直接跑完」，是安全且必備的選項。*(如果要刪除重建那叫 `migrate:fresh`，在正式機千萬別亂下！)*
 
    > [!WARNING]
-   > **🚨 故障排除：正式區啟動失敗出現 `failed to initialize workers` 怎麼解？**
-   > 如果你下 `docker compose up -d` 後網頁打不開，看 Log 發現這行可怕的紅字：
-   > `worker public/frankenphp-worker.php has not reached frankenphp_handle_request()`
-   > 
-   > **發生原因**：這代表 PHP 在嘗試啟動 Laravel 框架的「第一瞬間」就發生了致命錯誤（Fatal Error）導致崩潰。
-   > **常見兩大兇手**：
-   > 1. **忘記生金鑰**：正式機的 `.env` 裡面缺少了 `APP_KEY`，導致 Laravel 崩潰。請執行：`docker compose -f docker-compose.prod.yml exec app php artisan key:generate` 後再重啟容器。
-   > 2. **缺少啟動檔 (最常發生)**：你的專案沒有把 `public/frankenphp-worker.php` 推進 Git 裡面，導致正式機抓不到腳本。
-   >    👉 **解法超簡單**：只要重新執行一次 Octane 安裝指令，Laravel 就會自動幫你生出那支檔案（並且不會覆蓋你的其他設定），執行完重啟容器即可：
-   >    `docker compose -f docker-compose.prod.yml exec app php artisan octane:install --server=frankenphp`
-   > 
-   > 💡 **終極抓漏指令**：想知道它到底是哪裡出問題？請直接執行下面這個指令，讓 Octane 吐出真實的 PHP 錯訊：
+   > **🚨 故障排除：正式區啟動失敗怎麼解？**
+   > 如果你下 `docker compose up -d` 後網頁打不開，通常是因為 Laravel 在啟動時遇到 Fatal Error 或是 .env 設定錯誤。
+   > 常見原因與解法如下：
+   > 1. **檢查環境變數 .env**：確認 `.env` 有建立，是否有缺少 `APP_KEY`，或者參數(如 production) 有沒打錯。
+   > 2. **查看真實錯誤報告**：如果 Worker 狂閃退，可以直接跑這行指令，讓它在前景把實際的 PHP 錯誤吐出來：
    > ```bash
-   > docker compose -f docker-compose.prod.yml exec app php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8080
+   > docker compose -f docker-compose.prod.yml exec app php artisan octane:frankenphp --host=0.0.0.0 --port=8000
    > ```
-   > 
-   > 👻 **「等等，我下了上面那行指令，結果什麼都沒顯示就直接跳回命令字元了？！」**
-   > 如果完全沒有噴出任何錯誤（Silent Crash），這通常代表 Laravel 連出錯的力氣都沒有就斷氣了。請用這兩招急救：
-   > 
-   > **第一招：清除過期快取 (最常見)**
-   > 有時候 Image 打包時把舊的、路徑不對的設定檔也 cache 進去了，請直接對容器敲：
-   > `docker compose -f docker-compose.prod.yml exec app php artisan optimize:clear`
-   > 清完之後重啟容器，通常 80% 都能解決。
-   > 
-   > **第二招：看真正的驗屍報告**
-   > 既然終端機印不出來，Laravel 一定有偷偷把遺言寫在 Log 檔裡。請進去看那份唯一的真相：
-   > `docker compose -f docker-compose.prod.yml exec app cat storage/logs/laravel.log`
-   > (滑到檔案最下面，你就會看到真正的 Fatal Error 是什麼了！)
+   > *(看到錯誤就一目了然，修好後再重啟容器即可！)*
 
 **給個小建議**：如果專案規模變大，誠心建議正式區的佈署可以搭配 CI/CD (例如 GitHub Actions 或 GitLab CI)。在 CI 上面把 Docker Image 打包好推到 Registry，你的 Server只需要單純做 `docker pull` 跟 `docker compose up -d` 就好，這樣是最穩、最不怕髒的標準做法！
 
