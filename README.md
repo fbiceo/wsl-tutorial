@@ -216,7 +216,7 @@ CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--
 >
 > 簡單來說：`ENTRYPOINT` 是「每次容器啟動時一定會先跑的前置腳本」，而 `CMD` 則是「前置腳本跑完後，接著要執行的主程式」。
 > 拆開的好處是：我們可以在 `docker-entrypoint.sh` 裡面做一些必要的準備工作（像是修復 Storage 權限），做完之後才把控制權交給 Octane 伺服器。
-> 而在開發環境裡，我們還能透過 `docker-compose.yml` 的 `command` 參數輕鬆覆蓋 `CMD`，例如加上 `--watch` 來啟用熱重載，非常彈性！
+> 而在開發環境裡，我們還能透過 `docker-compose.yml` 的 `command` 參數輕鬆覆寫整段 `CMD`，例如加上 `--watch` 來啟用熱重載，非常彈性！
 
 ### 2. 準備 Entrypoint 啟動腳本
 在專案根目錄建立 `docker-entrypoint.sh`，這個腳本會在每次容器啟動時自動執行，幫我們處理 Storage 目錄的初始化與權限修復：
@@ -279,8 +279,8 @@ services:
             # 【重要】：開發環境把這行打開，掛載本機目錄
             # 如果是「正式上線」，請把這行註解掉，讓它讀取 Dockerfile 打包好的純淨原始碼
             - .:/app
-        # 開發環境必備：傳遞 --watch 參數給 Dockerfile 的 ENTRYPOINT 達成 Hot Reloading
-        command: ["--watch"]
+        # 開發環境必備：覆寫 Dockerfile 指令加入 --watch 參數達成 Hot Reloading
+        command: [ "php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000", "--admin-port=2019", "--watch" ]
         tty: true
         networks:
             - sail
@@ -479,7 +479,7 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
    - `CMD` 則是正式啟動 Octane 伺服器
    - 前端資源在「階段 1」就已經編譯打包好了
    
-   **開發時**，我們透過 `docker-compose.yml` 的 `command` 覆蓋 `CMD` 加上 `--watch` 來觸發熱重載；**正式機**不傳這個參數，它就會用最純淨、最高效能的 Octane 模式跑起來。
+   **開發時**，我們透過 `docker-compose.yml` 的 `command` 覆寫整段 `CMD` 並加上 `--watch` 來觸發熱重載；**正式機**不傳這個參數，它就會用最純淨、最高效能的 Octane 模式跑起來。
 
    **📝 範例：正式環境用的 `docker-compose.prod.yml`**
    *(正式區不需要再去搞 Nginx 跟 PHP-FPM 啦！直接起單一個包含了 FrankenPHP 的 app 映像檔即可，極致簡潔！)*
