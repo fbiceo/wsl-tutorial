@@ -477,6 +477,20 @@ docker compose exec app php artisan queue:work
 >         command: [ "php", "artisan", "queue:work", "--queue=critical", "--timeout=10800" ]
 > ```
 > 這樣就能同時享受 Horizon 視覺化管理輕量任務的美好，又保證核心大任務在佈署更新時，只要我們不手動去 `docker restart queue-critical`，它就不會被意外打斷囉！
+> 
+> 
+> **💡 延伸思考：那寫在 `docker-compose.yml` 裡的這些 Queue，遇到我們常見的 `build` 然後 `up -d` 更新程式碼時，會有影響嗎？**
+> 
+> **答案是：還是會有影響！**
+> 雖然 `up -d` 不會像 `down` 那樣粗暴地把所有東西關掉再開，但它的運作原理是：「發現 Image 更新了 → **刪除舊容器** → 用新 Image **建立新容器**」。
+>
+> 也就是說，當你打完 `docker compose build` 然後跑 `docker compose up -d` 時，Docker Compose 會發現 `queue-critical` 依賴的 Image 換新了，它就會強制把你正在跑的那個舊 `queue-critical` 容器「刪掉」，然後換一個新的給你。
+> 這個「刪舊建新」的瞬間，那個跑了兩個小時的報表任務一樣會被**直接腰斬中斷**（因為舊容器的記憶體跟進程直接消失了）！
+> 
+> **正式環境更新程式碼的「防腰斬」安全做法 (Zero Downtime 小技巧)：**
+> 1. 先跑 `docker compose build app` (把新程式碼打包好)。
+> 2. 接著跑 `docker compose up -d app horizon` (告訴 Docker：請幫我**只更新** Web 跟 Horizon 容器，那些不怕中斷或有完善 retry 機制的任務換新無所謂)。
+> 3. ***刻意不要去 up 那個 `queue-critical` 容器***！只要你不點名它，Docker 就不會去重建它，它就會安靜地在背景繼續執行舊版程式碼把手上幾小時的大任務做完。直到確認它閒置了，我們再手動單獨去 `docker compose up -d queue-critical` 讓它也載入新版程式碼。
 
 > [!WARNING]
 > **「編輯器突然不能存檔了？Permission Denied 怎麼辦？」**
