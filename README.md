@@ -610,6 +610,24 @@ Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 An
          - path: .env
            required: true # (Docker Compose v2.24+) 如果外面沒有 .env 檔，會直接報錯拒絕啟動！強迫你一定要建好它！
 
+     # 背景任務調度總管 (Laravel Horizon)
+     horizon:
+       build:
+         context: .
+         dockerfile: Dockerfile
+       restart: unless-stopped
+       network_mode: "host"
+       environment:
+         - APP_ENV=production
+         - APP_DEBUG=false
+       volumes:
+         - ./storage:/app/storage
+       env_file:
+         - path: .env
+           required: true
+       # 🔑 覆寫 CMD，讓它不要跑 Web Server，改跑 Horizon
+       command: [ "php", "artisan", "horizon" ]
+
      # (可選) 搜尋引擎：如果有使用 Laravel Scout + Meilisearch
      meilisearch:
        image: getmeili/meilisearch:latest
