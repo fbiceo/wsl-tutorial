@@ -193,9 +193,6 @@ COPY . /app
 # 這樣正式版就自帶編譯完的 CSS/JS，不需要在伺服器上裝 Node.js！
 COPY --from=frontend /app/public/build /app/public/build
 
-# 設定存取權限給 web server (Caddy 的資料目錄與 Laravel 的 log/cache 寫入)
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
-
 # 複製 Entrypoint 腳本並設定可執行權限
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
