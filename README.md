@@ -391,6 +391,93 @@ docker compose exec -u "$(id -u):$(id -g)" app php artisan make:controller TestC
 docker compose exec app php --version
 ```
 
+### 執行背景任務 (Queue Worker) 的優雅姿勢
+做專案難免會碰到要寄信、轉檔這種很花時間的任務，有時候看畫面一直轉圈圈真的會很焦慮... 所以這時候就會用到 Laravel 的 Queue 啦。
+
+以前在傳統主機上，我們通常要另外安裝 `supervisor` 來確保 Queue 行程中斷時能自動重啟。**但是！既然我們都上了 Docker 這艘船，最乾淨優雅的做法就是「完全不要裝 supervisor」，直接利用 Docker 引擎本身來當我們的進程守護神！**
+
+#### 做法一：本機開發的手動除錯模式
+平常自己開發，只是想快速看一下 Job 執行的 log，你可以多開一個 WSL 終端機視窗，直接叫 `app` 容器在前景幫你跑：
+```bash
+docker compose exec app php artisan queue:work
+```
+*(小提醒：這個指令敲下去就會卡在前景印出執行狀況，要停止就按 `Ctrl+C`。)*
+
+#### 做法二：正式上線 / 長期執行的終極做法 (Docker Native Supervisor)
+如果是在正式上線，或是你本機不想一直留一個終端機黑畫面，可以直接在 `docker-compose.yml` (以及 `.prod.yml`) 裡，**多起一個專門當無情打工機器的容器**！
+
+打開你的 `docker-compose.yml`，在 `services:` 底下，原本的 `app` 區塊下方加入這個 `queue` 服務：
+
+```yaml
+    queue:
+        # 完全沿用 app 的食譜與程式碼，不用重新打包，超快！
+        build:
+            context: .
+            dockerfile: Dockerfile
+        # 🔑 【關鍵】：這行就是我們的 Supervisor！出錯當機或重開機，Docker 都會秒速幫你重啟
+        restart: unless-stopped
+        environment:
+            - APP_ENV=${APP_ENV:-local}
+            - APP_DEBUG=${APP_DEBUG:-true}
+        volumes:
+            - .:/app
+        # 覆寫原本的啟動指令，讓他從 Web Server 變成專職的 Queue Worker
+        command: [ "php", "artisan", "queue:work", "--tries=3", "--timeout=90" ]
+        networks:
+            - sail
+#### 進階做法：大型專案的救星「Laravel Horizon」
+如果你的專案開始變大，有很多種不同的 Queue（例如分出 `emails`、`video_processing`、`reports`），而且開始需要：
+1. **看報表**：想知道 Queue 現在塞車多嚴重、每分鐘消化多少任務。
+2. **看失敗原因**：有沒有任務一直 Retry 失敗卡住。
+3. **動態調度心力**：當 `emails` 塞爆時，自動派更多 Worker 去處理信件。
+
+這時候，**真的非常強烈建議改用 Laravel Horizon**！
+它不是一個全新的 Queue 系統，而是建構在 Redis 之上的**「Queue 視覺化管理後台與超級調度員」**。
+
+**改成 Horizon 後，我們的設定會變成這樣：**
+1. 專案內安裝 Horizon (`composer require laravel/horizon` 再 `php artisan horizon:install`)。
+2. 在 `docker-compose.yml` 裡面，不再寫死一堆不同 `--queue=xxx` 的容器，而是直接全部交給 Horizon 管：
+```yaml
+    queue:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        environment:
+            - APP_ENV=${APP_ENV:-local}
+            - APP_DEBUG=${APP_DEBUG:-true}
+        volumes:
+            - .:/app
+        # 🔑 【關鍵】：啟動指令從 queue:work 改成 horizon
+        command: [ "php", "artisan", "horizon" ]
+        networks:
+            - sail
+```
+
+只要起了這個 `queue` 容器跑 `horizon`，它就會去讀你專案裡的 `config/horizon.php`，幫你「自動」在背景生出對應數量的 Worker，而且還送你一個超有質感的網頁儀表板（預設在 `你的網址/horizon`）！
+做專案看到這種儀表板在跑數據，真的有一種「哇，我寫的系統好高級」的錯覺哈哈，非常推薦在正式專案使用！
+
+> [!WARNING]
+> **「等等！那如果有程式碼更新，Horizon 不就全部一起重啟了？不能只重啟某個 Queue 嗎？」**
+>
+> 沒錯，這正是你需要權衡的點！Horizon 是一個**整體**。當你執行 `php artisan horizon:terminate`（通常在佈署腳本 `Deploy` 階段為了載入新程式碼而下達的指令）時，**Horizon 會把它底下管理的所有 Queue 全部優雅地重啟一次**。
+> 目前 Laravel 官方的 Horizon 設計上，**沒辦法單獨只對某個特定的 Queue 下達「重新載入程式碼」的指令**。只要重啟，就是全家桶一起重啟。
+> 
+> 如果你的系統有一種 Queue 是「**絕對不能被其他 Queue 的更新干擾**」（例如：一個跑下去要 3 小時的超大報表匯出、或是極度敏感的交易對帳），那把它們**全部**塞給同一個 Horizon 管可能就不是好主意。
+>
+> **遇到這種狀況的解法：**
+> 回歸「做法二」的本質精神，我們在 `docker-compose.yml` 裡面，把它們拆開成不同的容器，各管各的：
+> ```yaml
+>     # 負責處理一般信件、通知等可以一起重啟的輕量任務
+>     horizon:
+>         command: [ "php", "artisan", "horizon" ]
+> 
+>     # 負責不能隨便被重啟的敏感耗時大任務，獨立出來跑原生的 queue:work
+>     queue-critical:
+>         command: [ "php", "artisan", "queue:work", "--queue=critical", "--timeout=10800" ]
+> ```
+> 這樣就能同時享受 Horizon 視覺化管理輕量任務的美好，又保證核心大任務在佈署更新時，只要我們不手動去 `docker restart queue-critical`，它就不會被意外打斷囉！
+
 > [!WARNING]
 > **「編輯器突然不能存檔了？Permission Denied 怎麼辦？」**
 > 
