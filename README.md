@@ -538,13 +538,20 @@ docker compose exec -it -u "$(id -u):$(id -g)" app php artisan boost:install --m
 ```
 
 **設定 AI 編輯器的 MCP 連線指令（最重要的一步）：**
-預設情況下，Boost 自動寫給編輯器的啟動指令是呼叫本機的 `php` 或是 `sail`。但在我們的「零污染」環境中，Windows 客廳是沒有 PHP 的！所以我們必須手動指定 AI 「請你登入貨櫃裡面去敲指令」。
+因為我們要在 Windows 全域環境中，讓 AI 同時掌握多個不同專案的貨櫃，所以設定必須寫在 **全域 MCP 設定檔** 中。
 
-請在你的 AI 編輯器（如 Antigravity / Cursor 等）的 MCP 設定檔（通常在設定的 MCP 選單裡），將 `laravel-boost` 的啟動參數改成這樣：
+📍 **全域設定檔位置：**
+`~/.gemini/antigravity/mcp_config.json` (Windows 上通常位在 `C:\Users\你的使用者名稱\.gemini\antigravity\mcp_config.json`)
+
+請打開這個檔案，並確保：
+1. **命名區隔**：每個專案的 Server Key 必須是唯一的（例如 `autoparts-boost`、`blog-boost`）。
+2. **指定專案路徑**：因為指令從全域觸發，`docker compose` 必須加上 `--project-directory <絕對路徑>`，讓容器知道要在哪個資料夾下執行。
+
+**📝 設定範例 (同時設定兩個專案)：**
 ```json
 {
   "mcpServers": {
-    "laravel-boost": {
+    "autoparts-boost": {
       "command": "docker",
       "args": [
         "compose",
@@ -557,19 +564,40 @@ docker compose exec -it -u "$(id -u):$(id -g)" app php artisan boost:install --m
         "artisan",
         "boost:mcp"
       ]
+    },
+    "blog-boost": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "--project-directory",
+        "/home/user/projects/blog",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "artisan",
+        "boost:mcp"
+      ]
     }
   }
 }
 ```
+
 > [!IMPORTANT]
 > **注意 1：替換正確的專案路徑**
-> JSON 裡面的 `/home/user/projects/autoparts` 請務必改成**你這個專案在 WSL 裡面的絕對路徑**！因為 AI 編輯器的 MCP 通常是全域啟動的，如果不加 `--project-directory` 告訴 Docker Compose 專案位置在哪，它會找不到 `docker-compose.yml` 導致啟動失敗。
+> JSON 裡面的 `/home/user/projects/autoparts` 請務必改成**你各個專案在 WSL 裡面的絕對路徑**！
 
 > [!TIP]
 > **注意 2：不要漏掉 `-T` 參數哦！** 
-> AI 和 MCP 溝通是靠終端機標準輸入輸出 (stdio) 的。如果不加 `-T` 把 TTY 關掉，貨櫃回傳的資料會夾帶一堆 Linux 終端機控制碼，AI 會被亂碼搞到崩潰，導致完全讀不到資料！
+> AI 和 MCP 溝通是靠終端機標準輸入輸出 (stdio) 的。如果不加 `-T` 把 TTY 關掉，貨櫃回傳的資料會夾帶一堆 Linux 終端機控制碼，AI 會被亂碼搞到崩潰。
 
-設定好之後重啟編輯器的 MCP Server。現在你的 AI 已經拿到了專案的萬能鑰匙，遇到靈異 Bug，你甚至可以霸氣地對 AI 說：「你自己進貨櫃查錯誤 Log」，然後它就會乖乖幫你把問題挖出來啦！
+### 🧠 AI 如何知道要用哪一個專案的大腦？
+由於所有 Server 的設定都在全域，AI 啟動時會將**所有的工具**都載入。
+但是不用擔心，AI 在執行任務時，會自動根據以下兩點聰明地切換：
+1. **當前工作目錄（CWD）**：AI 會偵測你目前所在處理的專案路徑。
+2. **Server 命名與上下文**：AI 會比對名稱最符合當前專案上下文的 MCP Server（例如，人在 `autoparts` 目錄寫 code，AI 就會知道要選用來自 `autoparts-boost` 的工具）。
+
+設定完成後，**強烈建議「重新載入視窗」或重啟編輯器**，並在 MCP 面板點擊 **Refresh**。現在你的 AI 已經拿到了所有專案的萬能鑰匙，遇到靈異 Bug，你甚至可以霸氣地對 AI 說：「你自己進貨櫃查錯誤 Log」，然後它就會乖乖幫你把問題挖出來啦！
 
 ### 3. 日常開發循環
 Antigravity 會直接讀取 WSL 裡面的檔案並在背景透過 Laravel Boost 即時懂你的架構。存檔瞬間，因為 Docker Volume 掛載與 FrankenPHP 熱重載的關係，網頁重整立刻生效。
