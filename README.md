@@ -548,19 +548,25 @@ docker compose exec -it -u "$(id -u):$(id -g)" app php artisan boost:install --m
       "command": "docker",
       "args": [
         "compose",
+        "--project-directory",
+        "/home/user/projects/autoparts",
         "exec",
         "-T",
         "app",
         "php",
         "artisan",
-        "boost"
+        "boost:mcp"
       ]
     }
   }
 }
 ```
+> [!IMPORTANT]
+> **注意 1：替換正確的專案路徑**
+> JSON 裡面的 `/home/user/projects/autoparts` 請務必改成**你這個專案在 WSL 裡面的絕對路徑**！因為 AI 編輯器的 MCP 通常是全域啟動的，如果不加 `--project-directory` 告訴 Docker Compose 專案位置在哪，它會找不到 `docker-compose.yml` 導致啟動失敗。
+
 > [!TIP]
-> **注意那個 `-T` 參數哦！非常重要！** 
+> **注意 2：不要漏掉 `-T` 參數哦！** 
 > AI 和 MCP 溝通是靠終端機標準輸入輸出 (stdio) 的。如果不加 `-T` 把 TTY 關掉，貨櫃回傳的資料會夾帶一堆 Linux 終端機控制碼，AI 會被亂碼搞到崩潰，導致完全讀不到資料！
 
 設定好之後重啟編輯器的 MCP Server。現在你的 AI 已經拿到了專案的萬能鑰匙，遇到靈異 Bug，你甚至可以霸氣地對 AI 說：「你自己進貨櫃查錯誤 Log」，然後它就會乖乖幫你把問題挖出來啦！
