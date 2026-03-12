@@ -519,17 +519,59 @@ docker compose up -d
 
 現在網頁跑起來了，我們要開始改 Code。以往可能會想用 devcontainer，但我們直接走更穩定直白的路線。
 
+### 1. 開啟專案資料夾
 打開 Antigravity，選擇開啟資料夾 (Open Folder)。
 請直接在路徑列輸入 WSL 的網路磁碟機路徑，例如：
 `\\wsl$\Ubuntu\home\你的使用者名稱\projects\my-clean-app` 
 *(有時候是 `\\wsl.localhost\Ubuntu\...` 視你的 Windows 版本而定)*
 
-Antigravity 會直接連線並讀取 WSL 裡面的檔案。你接下來就在 Antigravity 裡面暢快地寫 Code，存檔的瞬間，因為 Docker volume 檔案掛載的關係，網頁重整就立刻生效。
+### 2. 注入 AI 靈魂：安裝 Laravel Boost (必做！)
+為了讓 Antigravity 能夠 100% 發揮 AI 寫 Code 的功力（讓它可以自己去查資料庫結構、看 Log、讀 Route），我們必須安裝官方專門為 AI 打造的神器：**Laravel Boost (MCP Server)**。
 
-**這就是我們的日常開發循環：**
+既然走零污染流派，安裝與初始化一樣派出 Docker 代勞，請在 WSL 終端機執行：
+```bash
+# 安裝 Boost 套件 (記得加上使用者權限，避免產生 root 檔案)
+docker compose exec -u "$(id -u):$(id -g)" app composer require laravel/boost --dev
+
+# 執行初始化安裝 (指令加上參數直接完成，避免互動選單出現咬死終端機)
+docker compose exec -it -u "$(id -u):$(id -g)" app php artisan boost:install --mcp --guidelines --skills
+```
+
+**設定 AI 編輯器的 MCP 連線指令（最重要的一步）：**
+預設情況下，Boost 自動寫給編輯器的啟動指令是呼叫本機的 `php` 或是 `sail`。但在我們的「零污染」環境中，Windows 客廳是沒有 PHP 的！所以我們必須手動指定 AI 「請你登入貨櫃裡面去敲指令」。
+
+請在你的 AI 編輯器（如 Antigravity / Cursor 等）的 MCP 設定檔（通常在設定的 MCP 選單裡），將 `laravel-boost` 的啟動參數改成這樣：
+```json
+{
+  "mcpServers": {
+    "laravel-boost": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "artisan",
+        "boost"
+      ]
+    }
+  }
+}
+```
+> [!TIP]
+> **注意那個 `-T` 參數哦！非常重要！** 
+> AI 和 MCP 溝通是靠終端機標準輸入輸出 (stdio) 的。如果不加 `-T` 把 TTY 關掉，貨櫃回傳的資料會夾帶一堆 Linux 終端機控制碼，AI 會被亂碼搞到崩潰，導致完全讀不到資料！
+
+設定好之後重啟編輯器的 MCP Server。現在你的 AI 已經拿到了專案的萬能鑰匙，遇到靈異 Bug，你甚至可以霸氣地對 AI 說：「你自己進貨櫃查錯誤 Log」，然後它就會乖乖幫你把問題挖出來啦！
+
+### 3. 日常開發循環
+Antigravity 會直接讀取 WSL 裡面的檔案並在背景透過 Laravel Boost 即時懂你的架構。存檔瞬間，因為 Docker Volume 掛載與 FrankenPHP 熱重載的關係，網頁重整立刻生效。
+
+兼具潔癖與極致 AI 生產力，**這就是我們的日常開發循環：**
 1. 啟動 WSL
 2. 進入專案資料夾跑 `docker compose up -d`
-3. 用 Antigravity 開啟 WSL 上的資料夾進行開發修改
+3. 用 Antigravity 開啟 WSL 上的資料夾進行開發 (AI 已火力全開)
 4. 下班關機前敲個 `docker compose down`，乾乾淨淨。
 
 [↑ 回到目錄](#目錄)
