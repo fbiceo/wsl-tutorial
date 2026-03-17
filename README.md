@@ -344,6 +344,23 @@ services:
             retries: 3
             timeout: 5s
 
+    mongodb:
+        image: 'mongo:8.0'
+        ports:
+            - '${FORWARD_MONGODB_PORT:-27017}:27017'
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: '${MONGODB_USERNAME:-root}'
+            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-}'
+            MONGO_INITDB_DATABASE: '${MONGODB_DATABASE:-laravel}'
+        volumes:
+            - 'sail-mongodb:/data/db'
+        networks:
+            - sail
+        healthcheck:
+            test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+            retries: 3
+            timeout: 5s
+
 networks:
     sail:
         driver: bridge
@@ -354,6 +371,8 @@ volumes:
     sail-redis:
         driver: local
     sail-meilisearch:
+        driver: local
+    sail-mongodb:
         driver: local
 ```
 
