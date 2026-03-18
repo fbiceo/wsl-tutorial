@@ -364,7 +364,7 @@ services:
             - '${FORWARD_MONGODB_PORT:-27017}:27017'
         environment:
             MONGO_INITDB_ROOT_USERNAME: '${MONGODB_USERNAME:-root}'
-            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-}'
+            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-secret}'
             MONGO_INITDB_DATABASE: '${MONGODB_DATABASE:-laravel}'
         volumes:
             - 'sail-mongodb:/data/db'
@@ -391,6 +391,15 @@ volumes:
 ```
 
 也就是說，我們把原本繁雜的 Nginx、PHP-FPM，加上 Sail 裡面各種雜七雜八的容器，全部收斂成一個高效的 `app` 容器！
+
+> [!WARNING]
+> **MongoDB 啟動失敗？(不斷閃退)**
+> 
+> MongoDB 容器啟動失敗，通常是因為它規定只要有設定 `MONGO_INITDB_ROOT_USERNAME`，就「必須」要給它初始密碼，不能留空。
+> 因為你的 `.env` 裡可能還沒有設定 `MONGODB_PASSWORD`（導致原本寫法被當作空字串），所以才引發報錯。
+> 
+> **解決方式：**
+> 如上方的配置，我們已經直接在 `docker-compose.yml` 替密碼加上了預設值 `secret` (`${MONGODB_PASSWORD:-secret}`)。修改後重新啟動容器（`docker compose up -d`），現在它應該已經順利起飛了！如果有裝 GUI 工具也可以直接連看看。
 
 [↑ 回到目錄](#目錄)
 
