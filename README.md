@@ -97,24 +97,38 @@ docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/h
 
 無論你選做法A還是做法B，現在 `~/projects/my-clean-app` 裡面都有熱騰騰、全副武裝的 Laravel 專案了，重點是你的 WSL 裡面依然一滴 PHP 的痕跡都沒有。乾淨！
 
+> [!WARNING]
+> **修復 Sail 無法執行的問題**
+> 
+> 因為我們是用純 Docker 的方式建立專案，不管你選做法 A 還是 B，都會出現 sail 無法執行的問題。請進入專案目錄，並執行下面解決方式才能順利運作：
+> ```bash
+> cd my-clean-app
+> 
+> # 1. 先把 sail 套件裝回來
+> docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/html laravelsail/php84-composer:latest composer require laravel/sail --dev --ignore-platform-reqs
+> 
+> # 2. 接著執行你剛剛跑的 sail:install 來初始化設定檔 (docker-compose.yml 等)
+> docker run --rm -it -u "$(id -u):$(id -g)" -v $(pwd):/var/www/html -w /var/www/html laravelsail/php84-composer:latest php artisan sail:install
+> 
+> # 3. 初始化完成後，就可以順利啟動了
+> ./vendor/bin/sail up -d
+> ```
+
 ### 安裝頂級引擎：FrankenPHP (Laravel Octane)
 因為我們堅持正式機跟開發機都要最乾淨、最高效能，所以我們不用傳統的 Nginx + PHP-FPM，而是直接選用用 Go 寫的現代化伺服器 **FrankenPHP**。它直接內建了 Web Server 跟 PHP 執行環境，讓網頁速度飛快。
 
-剛建好的專案自帶了 Laravel Sail，我們先把它暫時起起來，借用它的環境把 Octane 裝好：
+剛建好的專案已透過上方步驟啟動 Laravel Sail，我們接著借用它的環境把 Octane 裝好：
 
 ```bash
-cd my-clean-app
+# 確保你還在 my-clean-app 目錄下
 
-# 1. 啟動剛建好的基礎專案 (暫時使用 Sail 預設配置)
-./vendor/bin/sail up -d
-
-# 2. 安裝 Octane 套件
+# 1. 安裝 Octane 套件
 ./vendor/bin/sail composer require laravel/octane
 
-# 3. 選擇 FrankenPHP 作為引擎
+# 2. 選擇 FrankenPHP 作為引擎
 ./vendor/bin/sail artisan octane:install --server=frankenphp
 
-# 4. 安裝完畢，把暫時的環境關掉，準備我們自己的效能配置
+# 3. 安裝完畢，把暫時的環境關掉，準備我們自己的效能配置
 ./vendor/bin/sail down
 ```
 
