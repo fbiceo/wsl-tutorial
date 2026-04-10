@@ -46,6 +46,7 @@ cd ~/projects
 ```bash
 docker run --rm -it \
     -u "$(id -u):$(id -g)" \
+    -e npm_config_cache=/tmp/.npm \
     -v $(pwd):/app \
     -w /app \
     node:22-alpine \
